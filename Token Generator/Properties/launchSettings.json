@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Token Generator": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}
