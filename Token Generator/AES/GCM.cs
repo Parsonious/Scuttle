@@ -1,19 +1,31 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
+using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Token_Generator.Encoders;
 
 namespace Token_Generator.AES
 {
     internal class GCM
     {
-        internal static string EncryptToken(string title, string passphrase, string identifier, byte[] key)
+        internal static byte[] EncryptToken(string title, string passphrase, string identifier, byte[] key)
         {
             // Step 1: Concatenate inputs with a delimiter
             string combined = $"{title};{passphrase};{identifier}";
             byte[] plaintext = Encoding.UTF8.GetBytes(combined);
+
+            using ( var compressedStream = new MemoryStream() )
+            {
+                using (var gzipStream = new GZipStream(compressedStream, CompressionMode.Compress) )
+                {
+                    gzipStream.Write(plaintext, 0, plaintext.Length);
+                }
+                plaintext = compressedStream.ToArray();
+            }
 
             // Step 2: Generate a random nonce (12 bytes for AES-GCM)
             byte[] nonce = new byte[12];
@@ -33,12 +45,10 @@ namespace Token_Generator.AES
             Buffer.BlockCopy(ciphertext, 0, encryptedToken, nonce.Length, ciphertext.Length);
             Buffer.BlockCopy(tag, 0, encryptedToken, nonce.Length + ciphertext.Length, tag.Length);
 
-            return Base64.UrlEncode(encryptedToken);
+            return encryptedToken;
         }
-        internal static string[] DecryptToken(string encryptedToken, byte[] key)
+        internal static string[] DecryptToken(byte[] encryptedBytes, byte[] key)
         {
-            // Decode encrypted token from URL-safe Base64
-            byte[] encryptedBytes = Base64.UrlDecode(encryptedToken);
             // Extract nonce, ciphertext, and tag from the token
             byte[] nonce = new byte[12];
             byte[] ciphertext = new byte[encryptedBytes.Length - nonce.Length - 16];
@@ -53,7 +63,17 @@ namespace Token_Generator.AES
             {
                 aesGcm.Decrypt(nonce, ciphertext, tag, plaintext);
             }
-
+            using (var compressedStream = new MemoryStream(plaintext) )
+            {
+                using (var decompressedStream = new MemoryStream() )
+                {
+                    using ( var gzipStream = new GZipStream(compressedStream, CompressionMode.Decompress) )
+                    {
+                        gzipStream.CopyTo(decompressedStream);
+                    }
+                    plaintext = decompressedStream.ToArray();
+                }
+            }
             // Step 3: Split the decrypted string back into the original components
             string combined = Encoding.UTF8.GetString(plaintext);
             return combined.Split(';');

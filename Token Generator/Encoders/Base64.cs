@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Token_Generator.AES
+namespace Token_Generator.Encoders
 {
     internal class Base64
     {

@@ -4,12 +4,13 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Token_Generator.Encoders;
 
 namespace Token_Generator.AES
 {
     internal class CBC
     {
-        internal static string  EncryptToken(string title, string passphrase, string identifier, string secretKey, string iv)
+        internal static byte[]  EncryptToken(string title, string passphrase, string identifier, string secretKey, string iv)
         {
             // Step 1: Concatenate inputs with a delimiter
             string combined = $"{title};{passphrase};{identifier}";
@@ -36,7 +37,7 @@ namespace Token_Generator.AES
                 }
 
                 // Step 3: Convert the encrypted bytes to a URL safe Base64 string (compact token)
-                return Base64.UrlEncode(encryptedBytes);
+                return encryptedBytes;
             }
         }
         internal static string[] DecryptToken(string token, string secretKey, string iv)
@@ -54,7 +55,6 @@ namespace Token_Generator.AES
                 ICryptoTransform decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
 
                 // Decrypt the data
-                byte[] decryptedBytes;
                 using ( var ms = new System.IO.MemoryStream(encryptedBytes) )
                 {
                     using ( var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read) )
