@@ -11,21 +11,22 @@ namespace Token_Generator.Encoders
             if ( data == null || data.Length == 0 )
                 return string.Empty;
 
-            StringBuilder sb = new StringBuilder((data.Length + 1) / 2);
+            StringBuilder sb = new StringBuilder(data.Length / 2 + (data.Length % 2 == 0 ? 0 : 1));
 
             for ( int i = 0; i < data.Length; i += 2 )
             {
                 // Combine two bytes into a 16-bit value
-                ushort value = data[i];
-                value <<= 8;
+                int value = data[i] << 8;
 
+                // Handle the last byte if the length is odd
                 if ( i + 1 < data.Length )
                 {
                     value |= data[i + 1];
                 }
 
                 // Map the 16-bit value to a code point in the range U+10000 to U+1FFFF
-                int codePoint = 0x10000 + value;
+                // Ensure we don't exceed the valid range
+                int codePoint = 0x10000 + (value & 0xFFFF);
 
                 // Convert the code point to a UTF-16 encoded string
                 sb.Append(char.ConvertFromUtf32(codePoint));
@@ -39,36 +40,32 @@ namespace Token_Generator.Encoders
             if ( string.IsNullOrEmpty(text) )
                 return Array.Empty<byte>();
 
-            List<byte> data = new List<byte>(text.Length * 2);
+            List<byte> data = new List<byte>();
 
-            int i = 0;
-            while ( i < text.Length )
+            for ( int i = 0; i < text.Length; )
             {
+                // Get the Unicode code point
                 int codePoint = char.ConvertToUtf32(text, i);
 
-                // Move to the next character or surrogate pair
-                i += char.IsHighSurrogate(text, i) ? 2 : 1;
+                // Move past the surrogate pair if present
+                i += char.IsHighSurrogate(text[i]) ? 2 : 1;
 
-                // Reverse the mapping to get the original 16-bit value
+                // Validate code point range
                 if ( codePoint < 0x10000 || codePoint > 0x1FFFF )
-                    throw new ArgumentException("Invalid character in encoded string.");
+                    throw new ArgumentException($"Invalid character in encoded string at position {i}.");
 
-                ushort value = (ushort) (codePoint - 0x10000);
+                // Extract the original 16-bit value
+                int value = codePoint - 0x10000;
 
-                // Split the 16-bit value back into two bytes
-                byte highByte = (byte) (value >> 8);
-                byte lowByte = (byte) (value & 0xFF);
+                // Extract both bytes
+                data.Add((byte) (value >> 8));
 
-                data.Add(highByte);
-                if ( i <= text.Length * 2 ) // Avoid adding an extra byte from padding
+                // Only add the second byte if we're not at the end of an odd-length sequence
+                if ( i < text.Length || (value & 0xFF) != 0 )
                 {
-                    data.Add(lowByte);
+                    data.Add((byte) (value & 0xFF));
                 }
             }
-
-            // Remove potential padding zero byte
-            if ( data.Count > 0 && data[^1] == 0 )
-                data.RemoveAt(data.Count - 1);
 
             return data.ToArray();
         }
