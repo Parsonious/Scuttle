@@ -1,16 +1,20 @@
 ﻿using System.Security.Cryptography;
 using Token_Generator.Interfaces;
-using Token_Generator.Encoders;
 using System.Text;
+using Token_Generator.Base;
 
 namespace Token_Generator.Encrypt
 {
-    internal class ChaCha20Encrypt : IEncryption
+    internal class ChaCha20Encrypt : BaseEncryption
     {
         private const int KeySize = 32; // 256 bits
         private const int NonceSize = 12;
 
-        public byte[] Encrypt(byte[] data, byte[] key)
+        public ChaCha20Encrypt(IEncoder encoder) : base(encoder)
+        {
+        }
+
+        public override byte[] Encrypt(byte[] data, byte[] key)
         {
             if ( data == null || data.Length == 0 )
                 throw new ArgumentException("Data cannot be null or empty.", nameof(data));
@@ -35,7 +39,7 @@ namespace Token_Generator.Encrypt
             return result;
         }
 
-        public byte[] Decrypt(byte[] encryptedData, byte[] key)
+        public override byte[] Decrypt(byte[] encryptedData, byte[] key)
         {
             if ( encryptedData == null || encryptedData.Length < NonceSize + 16 )
                 throw new ArgumentException("Invalid encrypted data.", nameof(encryptedData));
@@ -57,21 +61,7 @@ namespace Token_Generator.Encrypt
             return plaintext;
         }
 
-        public string EncryptAndEncode(string data, byte[] key)
-        {
-            byte[] plainBytes = Encoding.UTF8.GetBytes(data);
-            byte[] encryptedBytes = Encrypt(plainBytes, key);
-            return Base65536.Encode(encryptedBytes);
-        }
-
-        public string DecodeAndDecrypt(string encodedData, byte[] key)
-        {
-            byte[] encryptedBytes = Base65536.Decode(encodedData);
-            byte[] decryptedBytes = Decrypt(encryptedBytes, key);
-            return Encoding.UTF8.GetString(decryptedBytes);
-        }
-
-        public byte[] GenerateKey()
+        public override byte[] GenerateKey()
         {
             byte[] key = new byte[KeySize];
             RandomNumberGenerator.Fill(key);

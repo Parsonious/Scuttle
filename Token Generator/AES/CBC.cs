@@ -4,7 +4,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using Token_Generator.Encoders;
+using Token_Generator.Base;
 
 namespace Token_Generator.AES
 {

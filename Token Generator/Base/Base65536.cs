@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Token_Generator.Encoders
+namespace Token_Generator.Base
 {
     internal class Base65536
     {

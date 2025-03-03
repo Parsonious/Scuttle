@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Token_Generator.Interfaces
 {
-    interface IEncryption
+    public interface IEncryption
     {
         byte[] Encrypt(byte[] data, byte[] key);
         byte[] Decrypt(byte[] encryptedData, byte[] key);

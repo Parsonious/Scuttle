@@ -1,9 +1,10 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
+using Token_Generator.Base;
 using Token_Generator.Encoders;
 using Token_Generator.Interfaces;
 
-internal class ThreefishEncrypt : IEncryption
+internal class ThreefishEncrypt : BaseEncryption
 {
     private const int KEY_SIZE = 64;    // 512 bits
     private const int TWEAK_SIZE = 16;  // 128 bits
@@ -17,26 +18,16 @@ internal class ThreefishEncrypt : IEncryption
 
     private static readonly int[] PERMUTATION = { 0, 3, 2, 1 };
 
-    public string EncryptAndEncode(string data, byte[] key)
+    public ThreefishEncrypt(IEncoder encoder) : base(encoder)
     {
-        byte[] dataBytes = Encoding.UTF8.GetBytes(data);
-        byte[] encrypted = Encrypt(dataBytes, key);
-        return Convert.ToBase64String(encrypted);
     }
-
-    public string DecodeAndDecrypt(string encodedData, byte[] key)
-    {
-        byte[] encryptedBytes = Convert.FromBase64String(encodedData);
-        byte[] decrypted = Decrypt(encryptedBytes, key);
-        return Encoding.UTF8.GetString(decrypted);
-    }
-    public byte[] GenerateKey()
+    public override byte[] GenerateKey()
     {
         byte[] key = new byte[KEY_SIZE];
         RandomNumberGenerator.Fill(key);
         return key;
     }
-    public byte[] Encrypt(byte[] data, byte[] key)
+    public override byte[] Encrypt(byte[] data, byte[] key)
     {
         if ( data == null || data.Length == 0 )
             throw new ArgumentException("Data cannot be null or empty.", nameof(data));
@@ -78,7 +69,7 @@ internal class ThreefishEncrypt : IEncryption
         return result;
     }
 
-    public byte[] Decrypt(byte[] encryptedData, byte[] key)
+    public override byte[] Decrypt(byte[] encryptedData, byte[] key)
     {
         if ( encryptedData == null || encryptedData.Length < TWEAK_SIZE + 4 )
             throw new ArgumentException("Invalid encrypted data.", nameof(encryptedData));

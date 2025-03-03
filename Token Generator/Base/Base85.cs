@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Token_Generator.Encoders
+namespace Token_Generator.Base
 {
     internal class Base85
     {
@@ -21,8 +21,8 @@ namespace Token_Generator.Encoders
         public static void TestBase85()
         {
             byte[] originalData = Encoding.UTF8.GetBytes("Test data for Base85 encoding/decoding.");
-            string encodedData = Base85.Encode(originalData);
-            byte[] decodedData = Base85.Decode(encodedData);
+            string encodedData = Encode(originalData);
+            byte[] decodedData = Decode(encodedData);
 
             if ( originalData.SequenceEqual(decodedData) )
             {
@@ -51,7 +51,7 @@ namespace Token_Generator.Encoders
 
             // 2. Use the combined data (length + original data) for encoding
             byte[] paddedData = dataWithLength.ToArray();
-            int encodedLength = ((paddedData.Length + 3) / 4) * 5;
+            int encodedLength = (paddedData.Length + 3) / 4 * 5;
             char[] encodedChars = new char[encodedLength];
 
             uint value = 0;
@@ -60,14 +60,14 @@ namespace Token_Generator.Encoders
 
             foreach ( byte b in paddedData ) // Use paddedData, not the original data
             {
-                value = (value << 8) | b;
+                value = value << 8 | b;
                 byteCount++;
 
                 if ( byteCount == 4 )
                 {
                     for ( int i = 0; i < 5; i++ )
                     {
-                        encodedChars[charIndex++] = Base85Chars[(int) ((value / PowersOf85[i]) % 85)];
+                        encodedChars[charIndex++] = Base85Chars[(int) (value / PowersOf85[i] % 85)];
                     }
                     value = 0;
                     byteCount = 0;
@@ -81,7 +81,7 @@ namespace Token_Generator.Encoders
                 {
                     if ( charIndex < encodedChars.Length )
                     {
-                        encodedChars[charIndex++] = Base85Chars[(int) ((value / PowersOf85[i]) % 85)];
+                        encodedChars[charIndex++] = Base85Chars[(int) (value / PowersOf85[i] % 85)];
                     }
                 }
             }
@@ -94,7 +94,7 @@ namespace Token_Generator.Encoders
                 return Array.Empty<byte>();
 
             // 1. Calculate decoded length to handle partial groups
-            int decodedLength = ((text.Length + 4) / 5) * 4;
+            int decodedLength = (text.Length + 4) / 5 * 4;
             byte[] decodedBytes = new byte[decodedLength];
 
             uint value = 0;
@@ -113,7 +113,7 @@ namespace Token_Generator.Encoders
                 {
                     for ( int i = 3; i >= 0; i-- )
                     {
-                        decodedBytes[byteIndex++] = (byte) ((value >> (i * 8)) & 0xFF);
+                        decodedBytes[byteIndex++] = (byte) (value >> i * 8 & 0xFF);
                     }
                     value = 0;
                     charCount = 0;
@@ -131,7 +131,7 @@ namespace Token_Generator.Encoders
                 {
                     if ( byteIndex < decodedBytes.Length )
                     {
-                        decodedBytes[byteIndex++] = (byte) ((value >> (i * 8)) & 0xFF);
+                        decodedBytes[byteIndex++] = (byte) (value >> i * 8 & 0xFF);
                     }
                 }
             }

@@ -1,32 +1,19 @@
 ﻿using Microsoft.Extensions.Configuration;
 using System.Text;
-using Token_Generator.Encoders;
-using Token_Generator.Encrypt;
+using Token_Generator.Models;
 
 class Program
 {
-    enum OperationMode
+    private readonly ConfigurationService _configService;
+    private readonly EncryptionService _encryptionService;
+
+    public Program(IConfiguration configuration)
     {
-        Encrypt,
-        Decrypt
-    }
-    enum EncryptionMethod
-    {
-        AES_GCM,
-        Base65536,
-        XChaCha20,
-        ChaCha20,
-        ThreeFish
+        _configService = new ConfigurationService(configuration);
+        _encryptionService = new EncryptionService(_configService);
     }
 
-    enum EncodingMethod
-    {
-        Base64,
-        Base85,
-        Base65536
-    }
-
-    static void Main()
+    public static async Task Main()
     {
         Console.OutputEncoding = Encoding.UTF8;
 
@@ -35,39 +22,28 @@ class Program
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
             .Build();
 
-        // Initialize encryption methods
-        var aesGcm = new AesGcmEncrypt();
-        var xChaCha20 = new XChaCha20Encrypt();
-        var chaCha20 = new ChaCha20Encrypt();
-        var threeFish = new ThreefishEncrypt();
+        var program = new Program(config);
+        await program.RunAsync();
+    }
 
+    private async Task RunAsync()
+    {
         bool continueProgram = true;
         while ( continueProgram )
         {
             try
             {
-                // Ask for operation mode
-                Console.WriteLine("\nSelect operation mode:");
-                Console.WriteLine("1. Encrypt (Create new token)");
-                Console.WriteLine("2. Decrypt (Read existing token)");
+                DisplayMainMenu();
+                var mode = GetOperationMode();
 
-                OperationMode mode = OperationMode.Encrypt;
-                if ( int.TryParse(Console.ReadLine(), out int modeChoice) )
+                switch ( mode )
                 {
-                    mode = modeChoice switch
-                    {
-                        2 => OperationMode.Decrypt,
-                        _ => OperationMode.Encrypt
-                    };
-                }
-
-                if ( mode == OperationMode.Encrypt )
-                {
-                    PerformEncryption(aesGcm, xChaCha20, chaCha20, threeFish);
-                }
-                else
-                {
-                    PerformDecryption(aesGcm, xChaCha20, chaCha20, threeFish);
+                    case "1":
+                        await PerformEncryptionAsync();
+                        break;
+                    case "2":
+                        await PerformDecryptionAsync();
+                        break;
                 }
             }
             catch ( Exception ex )
@@ -75,10 +51,7 @@ class Program
                 Console.WriteLine($"\nAn error occurred: {ex.Message}");
             }
 
-            Console.WriteLine("\nWould you like to perform another operation? (y/n)");
-            string? response = Console.ReadLine()?.ToLower();
-            continueProgram = response == "y" || response == "yes";
-
+            continueProgram = PromptContinue();
             if ( continueProgram )
             {
                 Console.Clear();
@@ -89,189 +62,177 @@ class Program
         Console.ReadKey();
     }
 
-    private static bool IsUrlSafe(string input)
+    private void DisplayMainMenu()
     {
-        return Uri.EscapeDataString(input) == input;
+        Console.WriteLine("\nSelect operation mode:");
+        Console.WriteLine("1. Encrypt (Create new token)");
+        Console.WriteLine("2. Decrypt (Read existing token)");
     }
-    private static void PerformEncryption(AesGcmEncrypt aesGcm, XChaCha20Encrypt xChaCha20,
-        ChaCha20Encrypt chaCha20, ThreefishEncrypt threeFish)
+
+    private string GetOperationMode()
     {
+        string? input = Console.ReadLine();
+        return input == "2" ? "2" : "1";
+    }
+
+    private async Task PerformEncryptionAsync()
+    {
+        // Display available encryption methods
+        DisplayEncryptionMethods();
+        var selectedAlgorithm = SelectEncryptionAlgorithm();
+
+        // Display encoding methods
+        DisplayEncodingMethods();
+        var selectedEncoding = SelectEncodingMethod();
+
+        // Get user input
+        var (title, instructions) = GetUserInput();
+
         try
         {
-            // Get user input for encryption method
-            Console.WriteLine("\nSelect encryption method:");
-            Console.WriteLine("1. AES-GCM");
-            Console.WriteLine("2. XChaCha20");
-            Console.WriteLine("3. ChaCha20");
-            Console.WriteLine("4. ThreeFish");
-
-            EncryptionMethod selectedEncryption = EncryptionMethod.AES_GCM; // Default
-            if ( int.TryParse(Console.ReadLine(), out int encChoice) )
-            {
-                selectedEncryption = encChoice switch
-                {
-                    1 => EncryptionMethod.AES_GCM,
-                    2 => EncryptionMethod.XChaCha20,
-                    3 => EncryptionMethod.ChaCha20,
-                    4 => EncryptionMethod.ThreeFish,
-                    _ => EncryptionMethod.AES_GCM
-                };
-            }
-
-            // Get user input for encoding method
-            Console.WriteLine("\nSelect encoding method:");
-            Console.WriteLine("1. Base64 (URL-safe, compact)");
-            Console.WriteLine("2. Base85 (more compact, not URL-safe)");
-            Console.WriteLine("3. Base65536 (most compact, Unicode-based)");
-
-            EncodingMethod selectedMethod = EncodingMethod.Base64;
-            if ( int.TryParse(Console.ReadLine(), out int choice) )
-            {
-                selectedMethod = choice switch
-                {
-                    1 => EncodingMethod.Base64,
-                    2 => EncodingMethod.Base85,
-                    3 => EncodingMethod.Base65536,
-                    _ => EncodingMethod.Base64
-                };
-            }
-
-            Console.WriteLine("\nProvide the following inputs to generate a token:");
-            Console.WriteLine("Title: ");
-            string title = Console.ReadLine() ?? throw new ArgumentNullException(nameof(title), "Article cannot be null.");
-            Console.WriteLine("Instructions: ");
-            string instructions = Console.ReadLine() ?? throw new ArgumentNullException(nameof(instructions), "Instructions cannot be null.");
-
-            // Generate key based on selected encryption method
-            byte[] key = selectedEncryption switch
-            {
-                EncryptionMethod.AES_GCM => aesGcm.GenerateKey(),
-                EncryptionMethod.XChaCha20 => xChaCha20.GenerateKey(),
-                EncryptionMethod.ChaCha20 => chaCha20.GenerateKey(),
-                EncryptionMethod.ThreeFish => threeFish.GenerateKey(),
-                _ => aesGcm.GenerateKey()
-            };
-
-            // Combine input data
+            // Perform encryption
             string combinedData = $"{title};{instructions}";
+            var implementation = _configService.GetImplementation(selectedAlgorithm.Name);
+
+            byte[] key = implementation.GenerateKey();
             byte[] dataBytes = Encoding.UTF8.GetBytes(combinedData);
+            byte[] encryptedData = implementation.Encrypt(dataBytes, key);
 
-            // Encrypt data using selected method
-            byte[] encryptedData = selectedEncryption switch
-            {
-                EncryptionMethod.AES_GCM => aesGcm.Encrypt(dataBytes, key),
-                EncryptionMethod.XChaCha20 => xChaCha20.Encrypt(dataBytes, key),
-                EncryptionMethod.ChaCha20 => chaCha20.Encrypt(dataBytes, key),
-                EncryptionMethod.ThreeFish => threeFish.Encrypt(dataBytes, key),
-                _ => aesGcm.Encrypt(dataBytes, key)
-            };
+            // Encode the data
+            string encodedToken = _encryptionService.EncodeData(encryptedData, selectedEncoding.Name);
 
-            // Encode the encrypted data
-            string encodedToken = selectedMethod switch
-            {
-                EncodingMethod.Base64 => Base64.UrlEncode(encryptedData),
-                EncodingMethod.Base85 => Base85.Encode(encryptedData),
-                EncodingMethod.Base65536 => Base65536.Encode(encryptedData),
-                _ => Base64.UrlEncode(encryptedData)
-            };
+            // Display results
+            DisplayResults(encodedToken, key, selectedAlgorithm, selectedEncoding, dataBytes.Length, encryptedData.Length);
 
-            Console.WriteLine($"\nEncoded Token ({selectedEncryption}, {selectedMethod}):");
-            if ( selectedMethod == EncodingMethod.Base65536 )
-            {
-                Console.WriteLine("Note: Base65536 encoding uses Unicode characters that may not display correctly in all environments.");
-                Console.WriteLine("Token length: " + encodedToken.Length + " characters");
-                // Optionally provide alternative display
-                Console.WriteLine("Base64 equivalent: " + Convert.ToBase64String(encryptedData));
-            }
-            else
-            {
-                Console.WriteLine(encodedToken);
-            }
-            Console.WriteLine($"\nKey (save this for decryption): {Convert.ToBase64String(key)}");
-
-            // Display token statistics
-            Console.WriteLine("\nToken Statistics:");
-            Console.WriteLine($"Original data length: {dataBytes.Length} bytes");
-            Console.WriteLine($"Encrypted data length: {encryptedData.Length} bytes");
-            Console.WriteLine($"Encoded token length: {encodedToken.Length} characters");
-            Console.WriteLine($"URL-safe: {IsUrlSafe(encodedToken)}");
-            Console.WriteLine();
-            
-            SaveToFile(encodedToken, Convert.ToBase64String(key), selectedEncryption, selectedMethod);
+            // Offer to save
+            await SaveToFileAsync(encodedToken, Convert.ToBase64String(key), selectedAlgorithm.Name, selectedEncoding.Name);
         }
-            catch (Exception ex )
-            {
-                Console.WriteLine($"\nAn error occurred: {ex.Message}");
-            }
+        catch ( Exception ex )
+        {
+            Console.WriteLine($"\nEncryption failed: {ex.Message}");
+        }
     }
-    private static void PerformDecryption(AesGcmEncrypt aesGcm, XChaCha20Encrypt xChaCha20,
-        ChaCha20Encrypt chaCha20, ThreefishEncrypt threeFish)
+
+    private async Task PerformDecryptionAsync()
     {
-        // Get user input for encryption method
-        Console.WriteLine("\nSelect the encryption method used:");
-        Console.WriteLine("1. AES-GCM");
-        Console.WriteLine("2. XChaCha20");
-        Console.WriteLine("3. ChaCha20");
-        Console.WriteLine("4. ThreeFish");
+        // Display available encryption methods
+        DisplayEncryptionMethods();
+        var selectedAlgorithm = SelectEncryptionAlgorithm();
 
-        EncryptionMethod selectedEncryption = EncryptionMethod.AES_GCM;
-        if ( int.TryParse(Console.ReadLine(), out int encChoice) )
-        {
-            selectedEncryption = encChoice switch
-            {
-                1 => EncryptionMethod.AES_GCM,
-                2 => EncryptionMethod.XChaCha20,
-                3 => EncryptionMethod.ChaCha20,
-                4 => EncryptionMethod.ThreeFish,
-                _ => EncryptionMethod.AES_GCM
-            };
-        }
+        // Display encoding methods
+        DisplayEncodingMethods();
+        var selectedEncoding = SelectEncodingMethod();
 
-        // Get user input for encoding method
-        Console.WriteLine("\nSelect the encoding method used:");
-        Console.WriteLine("1. Base64 (URL-safe, compact)");
-        Console.WriteLine("2. Base85 (more compact, not URL-safe)");
-        Console.WriteLine("3. Base65536 (most compact, Unicode-based)");
-
-        EncodingMethod selectedMethod = EncodingMethod.Base64;
-        if ( int.TryParse(Console.ReadLine(), out int choice) )
-        {
-            selectedMethod = choice switch
-            {
-                1 => EncodingMethod.Base64,
-                2 => EncodingMethod.Base85,
-                3 => EncodingMethod.Base65536,
-                _ => EncodingMethod.Base64
-            };
-        }
-
+        // Get token and key
         Console.WriteLine("\nPaste the encoded token:");
-        string encodedToken = Console.ReadLine() ?? throw new ArgumentNullException(nameof(encodedToken), "Token cannot be null.");
+        string encodedToken = Console.ReadLine() ?? throw new ArgumentNullException(nameof(encodedToken));
 
         Console.WriteLine("\nPaste the decryption key (Base64):");
-        string keyBase64 = Console.ReadLine() ?? throw new ArgumentNullException(nameof(keyBase64), "Key cannot be null.");
+        string keyBase64 = Console.ReadLine() ?? throw new ArgumentNullException(nameof(keyBase64));
         byte[] key = Convert.FromBase64String(keyBase64);
 
-        // Decode the token
-        byte[] encryptedData = selectedMethod switch
+        try
         {
-            EncodingMethod.Base64 => Base64.UrlDecode(encodedToken),
-            EncodingMethod.Base85 => Base85.Decode(encodedToken),
-            EncodingMethod.Base65536 => Base65536.Decode(encodedToken),
-            _ => Base64.UrlDecode(encodedToken)
-        };
+            // Decode and decrypt
+            byte[] encryptedData = _encryptionService.DecodeData(encodedToken, selectedEncoding.Name);
+            var implementation = _configService.GetImplementation(selectedAlgorithm.Name);
+            byte[] decryptedData = implementation.Decrypt(encryptedData, key);
 
-        // Decrypt the data
-        byte[] decryptedData = selectedEncryption switch
+            // Parse and display results
+            DisplayDecryptedData(decryptedData);
+        }
+        catch ( Exception ex )
         {
-            EncryptionMethod.AES_GCM => aesGcm.Decrypt(encryptedData, key),
-            EncryptionMethod.XChaCha20 => xChaCha20.Decrypt(encryptedData, key),
-            EncryptionMethod.ChaCha20 => chaCha20.Decrypt(encryptedData, key),
-            EncryptionMethod.ThreeFish => threeFish.Decrypt(encryptedData, key),
-            _ => aesGcm.Decrypt(encryptedData, key)
-        };
+            Console.WriteLine($"\nDecryption failed: {ex.Message}");
+        }
+    }
 
-        // Parse the decrypted data
+    private void DisplayEncryptionMethods()
+    {
+        Console.WriteLine("\nSelect encryption method:");
+        var algorithms = _configService.Algorithms;
+        for ( int i = 0; i < algorithms.Count; i++ )
+        {
+            var algorithm = algorithms[i];
+            string legacy = algorithm.IsLegacy ? " (Legacy)" : "";
+            Console.WriteLine($"{i + 1}. {algorithm.DisplayName}{legacy}");
+            if ( !string.IsNullOrEmpty(algorithm.Description) )
+            {
+                Console.WriteLine($"   {algorithm.Description}");
+            }
+        }
+    }
+
+    private void DisplayEncodingMethods()
+    {
+        Console.WriteLine("\nSelect encoding method:");
+        var methods = _configService.EncodingMethods;
+        for ( int i = 0; i < methods.Count; i++ )
+        {
+            var method = methods[i];
+            Console.WriteLine($"{i + 1}. {method.DisplayName} ({method.Description})");
+        }
+    }
+
+    private EncryptionAlgorithm SelectEncryptionAlgorithm()
+    {
+        var algorithms = _configService.Algorithms;
+        if ( int.TryParse(Console.ReadLine(), out int choice) && choice > 0 && choice <= algorithms.Count )
+        {
+            return algorithms[choice - 1];
+        }
+        return algorithms[0]; // Default to first algorithm
+    }
+
+    private EncodingMethod SelectEncodingMethod()
+    {
+        var methods = _configService.EncodingMethods;
+        if ( int.TryParse(Console.ReadLine(), out int choice) && choice > 0 && choice <= methods.Count )
+        {
+            return methods[choice - 1];
+        }
+        return methods[0]; // Default to first method
+    }
+
+    private (string title, string instructions) GetUserInput()
+    {
+        Console.WriteLine("\nProvide the following inputs to generate a token:");
+        Console.WriteLine("Title: ");
+        string title = Console.ReadLine() ?? throw new ArgumentNullException(nameof(title));
+
+        Console.WriteLine("Instructions: ");
+        string instructions = Console.ReadLine() ?? throw new ArgumentNullException(nameof(instructions));
+
+        return (title, instructions);
+    }
+
+    private void DisplayResults(string encodedToken, byte[] key, EncryptionAlgorithm algorithm,
+        EncodingMethod encoding, int originalLength, int encryptedLength)
+    {
+        Console.WriteLine($"\nEncoded Token ({algorithm.DisplayName}, {encoding.DisplayName}):");
+
+        if ( encoding.Name == "Base65536" )
+        {
+            Console.WriteLine("Note: Base65536 encoding uses Unicode characters that may not display correctly in all environments.");
+            Console.WriteLine("Token length: " + encodedToken.Length + " characters");
+            Console.WriteLine("Base64 equivalent: " + Convert.ToBase64String(Encoding.UTF8.GetBytes(encodedToken)));
+        }
+        else
+        {
+            Console.WriteLine(encodedToken);
+        }
+
+        Console.WriteLine($"\nKey (save this for decryption): {Convert.ToBase64String(key)}");
+
+        Console.WriteLine("\nToken Statistics:");
+        Console.WriteLine($"Original data length: {originalLength} bytes");
+        Console.WriteLine($"Encrypted data length: {encryptedLength} bytes");
+        Console.WriteLine($"Encoded token length: {encodedToken.Length} characters");
+        Console.WriteLine($"URL-safe: {IsUrlSafe(encodedToken)}");
+    }
+
+    private void DisplayDecryptedData(byte[] decryptedData)
+    {
         string decryptedText = Encoding.UTF8.GetString(decryptedData);
         string[] parts = decryptedText.Split(';');
 
@@ -287,53 +248,69 @@ class Program
             Console.WriteLine(decryptedText);
         }
     }
-    private static void SaveToFile(string token, string key, EncryptionMethod encMethod, EncodingMethod encodeMethod)
+
+    private async Task SaveToFileAsync(string token, string key, string encMethod, string encodeMethod)
     {
-        Console.WriteLine("\nWould you like to save the token and key to a file? (y/n)");
-        string? response = Console.ReadLine()?.ToLower();
+        if ( !PromptSaveToFile() ) return;
 
-        if ( response == "y" || response == "yes" )
+        string? filePath = GetFilePath();
+        if ( string.IsNullOrEmpty(filePath) ) return;
+
+        try
         {
-            Console.WriteLine("\nEnter the file path and name (e.g., C:\\Tokens\\mytoken.txt):");
-            string? filePath = Console.ReadLine();
-
-            if ( string.IsNullOrEmpty(filePath) )
-            {
-                Console.WriteLine("Invalid file path. Skipping file save.");
-                return;
-            }
-
-            try
-            {
-                // Create directory if it doesn't exist
-                string? directory = Path.GetDirectoryName(filePath);
-                if ( !string.IsNullOrEmpty(directory) )
-                {
-                    Directory.CreateDirectory(directory);
-                }
-
-                // Prepare the content
-                var content = new StringBuilder();
-                content.AppendLine("Token Generator Output");
-                content.AppendLine("--------------------");
-                content.AppendLine($"Generated: {DateTime.Now}");
-                content.AppendLine($"Encryption Method: {encMethod}");
-                content.AppendLine($"Encoding Method: {encodeMethod}");
-                content.AppendLine("\nTOKEN:");
-                content.AppendLine(token);
-                content.AppendLine("\nKEY (Base64):");
-                content.AppendLine(key);
-                content.AppendLine("\nNote: Keep this file secure. The key is required to decrypt the token.");
-
-                // Write to file
-                File.WriteAllText(filePath, content.ToString());
-                Console.WriteLine($"\nFile saved successfully to: {filePath}");
-            }
-            catch ( Exception ex )
-            {
-                Console.WriteLine($"\nError saving file: {ex.Message}");
-            }
+            await SaveContentToFileAsync(filePath, token, key, encMethod, encodeMethod);
+        }
+        catch ( Exception ex )
+        {
+            Console.WriteLine($"\nError saving file: {ex.Message}");
         }
     }
 
+    private static bool PromptSaveToFile()
+    {
+        Console.WriteLine("\nWould you like to save the token and key to a file? (y/n)");
+        string? response = Console.ReadLine()?.ToLower();
+        return response == "y" || response == "yes";
+    }
+
+    private static string? GetFilePath()
+    {
+        Console.WriteLine("\nEnter the file path and name (e.g., C:\\Tokens\\mytoken.txt):");
+        return Console.ReadLine();
+    }
+
+    private static async Task SaveContentToFileAsync(string filePath, string token, string key,
+        string encMethod, string encodeMethod)
+    {
+        string? directory = Path.GetDirectoryName(filePath);
+        if ( !string.IsNullOrEmpty(directory) )
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        var content = new StringBuilder()
+            .AppendLine("Token Generator Output")
+            .AppendLine("--------------------")
+            .AppendLine($"Generated: {DateTime.Now}")
+            .AppendLine($"Encryption Method: {encMethod}")
+            .AppendLine($"Encoding Method: {encodeMethod}")
+            .AppendLine("\nTOKEN:")
+            .AppendLine(token)
+            .AppendLine("\nKEY (Base64):")
+            .AppendLine(key)
+            .AppendLine("\nNote: Keep this file secure. The key is required to decrypt the token.");
+
+        await File.WriteAllTextAsync(filePath, content.ToString());
+        Console.WriteLine($"\nFile saved successfully to: {filePath}");
+    }
+
+    private static bool PromptContinue()
+    {
+        Console.WriteLine("\nWould you like to perform another operation? (y/n)");
+        string? response = Console.ReadLine()?.ToLower();
+        return response == "y" || response == "yes";
+    }
+
+    private static bool IsUrlSafe(string input)
+        => Uri.EscapeDataString(input) == input;
 }
