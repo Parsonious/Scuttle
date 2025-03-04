@@ -25,40 +25,14 @@ jobs:
         tag_name: v${{ steps.version.outputs.version }}
         name: Release v${{ steps.version.outputs.version }}
         generate_release_notes: true
+
   build:
     needs: create-release
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
-          - rid: win-x64
-            os: windows
-            ext: .exe
-            archive: zip
-          - rid: win-x86
-            os: windows
-            ext: .exe
-            archive: zip
-          - rid: win-arm64
-            os: windows
-            ext: .exe
-            archive: zip
-          - rid: linux-x64
-            os: linux
-            ext: ''
-            archive: tar.gz
-          - rid: linux-arm64
-            os: linux
-            ext: ''
-            archive: tar.gz
-          - rid: osx-x64
-            os: macos
-            ext: ''
-            archive: tar.gz
-          - rid: osx-arm64
-            os: macos
-            ext: ''
-            archive: tar.gz
+          # ... your RIDs ...
             
     steps:
     - uses: actions/checkout@v3
@@ -94,12 +68,12 @@ jobs:
         cd "Token Generator/bin/Release/net8.0/${{ matrix.rid }}/publish/"
         
         if [ "${{ matrix.archive }}" = "zip" ]; then
-          zip -r TokenGenerator-${{ matrix.rid }}.zip .
+          zip -r ../TokenGenerator-${{ matrix.rid }}.zip .
         else
-          tar -czvf TokenGenerator-${{ matrix.rid }}.tar.gz .
+          tar -czvf ../TokenGenerator-${{ matrix.rid }}.tar.gz .
         fi
         
-        mv TokenGenerator-${{ matrix.rid }}.${{ matrix.archive }} ..
+        mv ../TokenGenerator-${{ matrix.rid }}.${{ matrix.archive }} .
 
     - name: Upload Release Asset
       uses: softprops/action-gh-release@v1
