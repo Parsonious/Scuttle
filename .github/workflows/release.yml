@@ -31,8 +31,19 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          # ... your RIDs ...
+        include:  
+          - rid: win-x64
+            os: windows
+            ext: .exe
+            archive: zip
+          - rid: win-x86
+            os: windows
+            ext: .exe
+            archive: zip
+          - rid: linux-x64
+            os: linux
+            ext: ''
+            archive: tar.gz
             
     steps:
     - uses: actions/checkout@v3
