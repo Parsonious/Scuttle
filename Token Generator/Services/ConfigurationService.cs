@@ -1,114 +1,85 @@
 ﻿using Microsoft.Extensions.Configuration;
-using Token_Generator.Encrypt;
+using Token_Generator.Encoders;
 using Token_Generator.Interfaces;
 using Token_Generator.Models;
+using Token_Generator.Models.Configuration;
+using Token_Generator.Models.Token_Generator.Models;
 
-internal class ConfigurationService
+public class ConfigurationService
 {
-    private readonly Dictionary<string, IEncryption> _implementations = new();
-    private readonly List<EncryptionAlgorithm> _algorithms = new();
-    private readonly List<EncodingMethod> _encodingMethods = new();
+    private readonly IConfiguration _configuration;
+    private readonly EncryptionConfig _encryptionConfig;
 
-    public IReadOnlyList<EncryptionAlgorithm> Algorithms => _algorithms.AsReadOnly();
-    public IReadOnlyList<EncodingMethod> EncodingMethods => _encodingMethods.AsReadOnly();
-
-    public ConfigurationService(IConfiguration config)
+    public ConfigurationService(IConfiguration configuration)
     {
-        InitializeEncodingMethods();
-        InitializeEncryptionAlgorithms();
+        _configuration = configuration;
+        _encryptionConfig = configuration.GetSection("Encryption").Get<EncryptionConfig>()
+            ?? throw new InvalidOperationException("Encryption configuration is missing");
+    }
+    public IEncoder GetEncoder(string name)
+    {
+        if ( !_encryptionConfig.Encoders.TryGetValue(name, out var config) )
+        {
+            throw new KeyNotFoundException($"Encoder '{name}' not found in configuration");
+        }
+
+        return name switch
+        {
+            "Base64" => new Base64Encoder(),
+            "Base85" => new Base85Encoder(),
+            "Base65536" => new Base65536Encoder(),
+            _ => throw new NotSupportedException($"Encoder '{name}' is not supported")
+        };
     }
 
-    private void InitializeEncodingMethods()
+    public IEncoder GetDefaultEncoder(string algorithmName)
     {
-        _encodingMethods.AddRange(new[]
+        if ( !_encryptionConfig.Algorithms.TryGetValue(algorithmName, out var config) )
         {
-            new EncodingMethod
-            {
-                Name = "Base64",
-                DisplayName = "Base64",
-                Description = "URL-safe, compact",
-                IsUrlSafe = true
-            },
-            new EncodingMethod
-            {
-                Name = "Base85",
-                DisplayName = "Base85",
-                Description = "More compact, not URL-safe",
-                IsUrlSafe = false
-            },
-            new EncodingMethod
-            {
-                Name = "Base65536",
-                DisplayName = "Base65536",
-                Description = "Most compact, Unicode-based",
-                IsUrlSafe = false
-            },
+            return GetEncoder(_encryptionConfig.DefaultEncoder);
+        }
+        return GetEncoder(config.DefaultEncoder);
+    }
+
+    public AlgorithmMetadata GetAlgorithmMetadata(string name)
+    {
+        if ( !_encryptionConfig.Algorithms.TryGetValue(name, out var config) )
+        {
+            throw new KeyNotFoundException($"Algorithm '{name}' not found in configuration");
+        }
+
+        return new AlgorithmMetadata
+        {
+            Name = config.Name,
+            DisplayName = config.DisplayName,
+            Description = config.Description,
+            KeySize = config.KeySize,
+            IsLegacy = config.IsLegacy,
+            Capabilities = config.Capabilities ?? Array.Empty<string>()
+        };
+    }
+
+    public IEnumerable<AlgorithmMetadata> GetAllAlgorithms()
+    {
+        return _encryptionConfig.Algorithms.Values.Select(config => new AlgorithmMetadata
+        {
+            Name = config.Name,
+            DisplayName = config.DisplayName,
+            Description = config.Description,
+            KeySize = config.KeySize,
+            IsLegacy = config.IsLegacy,
+            Capabilities = config.Capabilities
         });
     }
 
-    private void InitializeEncryptionAlgorithms()
+    public IEnumerable<EncoderMetadata> GetAllEncoders()
     {
-        // Modern algorithms
-        RegisterAlgorithm(new EncryptionAlgorithm
+        return _encryptionConfig.Encoders.Values.Select(config => new EncoderMetadata
         {
-            Name = "AES_GCM",
-            DisplayName = "AES-GCM",
-            Description = "Advanced Encryption Standard with Galois/Counter Mode",
-            IsLegacy = false
-        }, new AesGcmEncrypt());
-
-        RegisterAlgorithm(new EncryptionAlgorithm
-        {
-            Name = "XChaCha20",
-            DisplayName = "XChaCha20",
-            Description = "Extended ChaCha20 stream cipher with Poly1305",
-            IsLegacy = false
-        }, new XChaCha20Encrypt());
-
-        RegisterAlgorithm(new EncryptionAlgorithm
-        {
-            Name = "ChaCha20",
-            DisplayName = "ChaCha20",
-            Description = "ChaCha20 stream cipher with Poly1305",
-            IsLegacy = false
-        }, new ChaCha20Encrypt());
-
-        RegisterAlgorithm(new EncryptionAlgorithm
-        {
-            Name = "ThreeFish",
-            DisplayName = "ThreeFish",
-            Description = "ThreeFish block cipher (512-bit)",
-            IsLegacy = false
-        }, new ThreefishEncrypt());
-
-        // Legacy algorithms
-        RegisterAlgorithm(new EncryptionAlgorithm
-        {
-            Name = "RC2",
-            DisplayName = "RC2",
-            Description = "RC2 block cipher (legacy)",
-            IsLegacy = true
-        }, new RC2Encrypt());
-
-        RegisterAlgorithm(new EncryptionAlgorithm
-        {
-            Name = "TripleDES",
-            DisplayName = "Triple DES",
-            Description = "Triple DES block cipher (legacy)",
-            IsLegacy = true
-        }, new TripleDesEncrypt());
+            Name = config.Name,
+            DisplayName = config.DisplayName,
+            Description = config.Description,
+            IsUrlSafe = config.IsUrlSafe
+        });
     }
-    internal void RegisterAlgorithm(EncryptionAlgorithm algorithm, IEncryption implementation)
-    {
-        _algorithms.Add(algorithm);
-        _implementations[algorithm.Name] = implementation;
-    }
-    internal IEncryption GetImplementation(string name)
-        => _implementations.TryGetValue(name, out var impl)
-            ? impl
-            : throw new KeyNotFoundException($"Encryption algorithm '{name}' not found.");
-
-    internal EncodingMethod GetEncodingMethod(string name)
-        => _encodingMethods.FirstOrDefault(m => m.Name == name)
-            ?? throw new KeyNotFoundException($"Encoding method '{name}' not found.");
 }

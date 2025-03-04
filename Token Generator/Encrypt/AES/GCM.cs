@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Token_Generator.Encoders;
 
-namespace Token_Generator.AES
+namespace Token_Generator.Encrypt.AES
 {
     internal class GCM
     {

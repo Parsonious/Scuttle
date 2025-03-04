@@ -1,6 +1,6 @@
 ﻿using System.Security.Cryptography;
-using System.Text;
 using Token_Generator.Base;
+using Token_Generator.Helpers;
 using Token_Generator.Interfaces;
 
 internal class Salsa20Encrypt : BaseEncryption
@@ -66,29 +66,22 @@ internal class Salsa20Encrypt : BaseEncryption
 
     private byte[] GenerateKeystream(byte[] key, byte[] nonce, int length)
     {
-        uint[] state = new uint[STATE_SIZE];
         byte[] output = new byte[length];
+        const int BLOCK_SIZE = 64;  // Salsa20 block size is 64 bytes
+
+        // Move stackalloc outside the loop
+        Span<uint> state = stackalloc uint[STATE_SIZE];
+        Span<uint> working = stackalloc uint[STATE_SIZE];
+        Span<byte> block = stackalloc byte[BLOCK_SIZE];
+
         int position = 0;
 
-        // Initialize state with constants
-        state[0] = 0x61707865; // "expa"
-        state[5] = 0x3320646e; // "nd 3"
-        state[10] = 0x79622d32; // "2-by"
-        state[15] = 0x6b206574; // "te k"
-
-        // Set key (8 words)
-        for ( int i = 0; i < 8; i++ )
-        {
-            state[i + 1] = BitConverter.ToUInt32(key, i * 4);
-        }
-
-        // Set nonce (2 words)
-        state[6] = BitConverter.ToUInt32(nonce, 0);
-        state[7] = BitConverter.ToUInt32(nonce, 4);
+        // Initialize state with proper endianness handling
+        CryptoEndianness.InitializeChaChaState(state, key, nonce, 0, true); // true for Salsa20
 
         while ( position < length )
         {
-            uint[] working = (uint[]) state.Clone();
+            state.CopyTo(working);
 
             // Perform 20 rounds (10 double rounds)
             for ( int round = 0; round < 10; round++ )
@@ -112,16 +105,12 @@ internal class Salsa20Encrypt : BaseEncryption
                 working[i] += state[i];
             }
 
-            // Convert state to bytes and copy to output
-            byte[] block = new byte[64];
-            for ( int i = 0; i < STATE_SIZE; i++ )
-            {
-                BitConverter.GetBytes(working[i]).CopyTo(block, i * 4);
-            }
+            // Process block with proper endianness
+            CryptoEndianness.ProcessBlock32(block, working);
 
-            int blockSize = Math.Min(64, length - position);
-            Buffer.BlockCopy(block, 0, output, position, blockSize);
-            position += blockSize;
+            int bytesToCopy = Math.Min(BLOCK_SIZE, length - position);
+            block[..bytesToCopy].CopyTo(output.AsSpan(position));
+            position += bytesToCopy;
 
             // Increment counter
             state[8]++;
@@ -131,14 +120,14 @@ internal class Salsa20Encrypt : BaseEncryption
         return output;
     }
 
+
     private static void QuarterRound(ref uint a, ref uint b, ref uint c, ref uint d)
     {
-        b ^= RotateLeft((a + d), 7);
-        c ^= RotateLeft((b + a), 9);
-        d ^= RotateLeft((c + b), 13);
-        a ^= RotateLeft((d + c), 18);
+        b ^= CryptoEndianness.RotateLeft32((a + d), 7);
+        c ^= CryptoEndianness.RotateLeft32((b + a), 9);
+        d ^= CryptoEndianness.RotateLeft32((c + b), 13);
+        a ^= CryptoEndianness.RotateLeft32((d + c), 18);
     }
-
     private static uint RotateLeft(uint value, int offset)
         => (value << offset) | (value >> (32 - offset));
 

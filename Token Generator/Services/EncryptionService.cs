@@ -1,18 +1,21 @@
 ﻿using System.Text;
-using Token_Generator.Base;
+using Token_Generator.Configuration;
 
 public class EncryptionService
 {
     private readonly ConfigurationService _config;
+    private readonly AlgorithmRegistry _registry;
 
     public EncryptionService(ConfigurationService config)
     {
         _config = config;
+        var factory = new EncryptionFactory(config);
+        _registry = new AlgorithmRegistry(factory);
     }
 
     public (byte[] data, byte[] key) Encrypt(string algorithmName, string data)
     {
-        var implementation = _config.GetImplementation(algorithmName);
+        var implementation = _registry.CreateAlgorithm(algorithmName);
         var key = implementation.GenerateKey();
         var dataBytes = Encoding.UTF8.GetBytes(data);
         var encrypted = implementation.Encrypt(dataBytes, key);
@@ -21,30 +24,20 @@ public class EncryptionService
 
     public string Decrypt(string algorithmName, byte[] data, byte[] key)
     {
-        var implementation = _config.GetImplementation(algorithmName);
+        var implementation = _registry.CreateAlgorithm(algorithmName);
         var decrypted = implementation.Decrypt(data, key);
         return Encoding.UTF8.GetString(decrypted);
     }
 
     public string EncodeData(byte[] data, string encodingMethod)
     {
-        return encodingMethod switch
-        {
-            "Base64" => Base64.UrlEncode(data),
-            "Base85" => Base85.Encode(data),
-            "Base65536" => Base65536.Encode(data),
-            _ => throw new ArgumentException($"Unknown encoding method: {encodingMethod}")
-        };
+        var encoder = _config.GetEncoder(encodingMethod);
+        return encoder.Encode(data);
     }
 
     public byte[] DecodeData(string data, string encodingMethod)
     {
-        return encodingMethod switch
-        {
-            "Base64" => Base64.UrlDecode(data),
-            "Base85" => Base85.Decode(data),
-            "Base65536" => Base65536.Decode(data),
-            _ => throw new ArgumentException($"Unknown encoding method: {encodingMethod}")
-        };
+        var encoder = _config.GetEncoder(encodingMethod);
+        return encoder.Decode(data);
     }
 }

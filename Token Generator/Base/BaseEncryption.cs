@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using Token_Generator.Interfaces;
+using Token_Generator.Encoders;
 
 namespace Token_Generator.Base
 {

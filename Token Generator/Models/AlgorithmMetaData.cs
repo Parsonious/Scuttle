@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Token_Generator.Models
 {
-    internal record AlgorithmMetadata
+    public record AlgorithmMetadata
     {
         public required string Name { get; init; }
         public required string DisplayName { get; init; }

@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Token_Generator.Base;
 
-namespace Token_Generator.AES
+namespace Token_Generator.Encrypt.AES
 {
     internal class CBC
     {
@@ -55,11 +55,11 @@ namespace Token_Generator.AES
                 ICryptoTransform decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
 
                 // Decrypt the data
-                using ( var ms = new System.IO.MemoryStream(encryptedBytes) )
+                using ( var ms = new MemoryStream(encryptedBytes) )
                 {
                     using ( var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read) )
                     {
-                        using ( var sr = new System.IO.StreamReader(cs) )
+                        using ( var sr = new StreamReader(cs) )
                         {
                             string decryptedText = sr.ReadToEnd();
                             // Step 3: Split the decrypted string back into the original components
