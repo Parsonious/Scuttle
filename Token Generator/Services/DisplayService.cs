@@ -137,7 +137,7 @@ namespace Token_Generator.Services
                 _ => "encrypt" 
             };
         }
-
+        //test
         public bool PromptContinue()
         {
             Console.WriteLine("\nWould you like to perform another operation? (y/n)");
