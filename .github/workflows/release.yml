@@ -26,7 +26,7 @@ jobs:
         name: Release v${{ steps.version.outputs.version }}
         generate_release_notes: true
 
-  build:
+    build:
     needs: create-release
     runs-on: ubuntu-latest
     strategy:
@@ -44,7 +44,7 @@ jobs:
             os: linux
             ext: ''
             archive: tar.gz
-            
+
     steps:
     - uses: actions/checkout@v3
     
@@ -88,6 +88,9 @@ jobs:
 
     - name: Upload Release Asset
       uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
+        tag_name: v${{ needs.create-release.outputs.version }}  # Reuse the same tag
         files: |
           Token Generator/bin/Release/net8.0/${{ matrix.rid }}/publish/TokenGenerator-${{ matrix.rid }}.${{ matrix.archive }}
