@@ -97,11 +97,7 @@ jobs:
       run: |
         # Update this path if your output directory is different
         cd "Token Generator/bin/Release/net8.0/${{ matrix.rid }}/publish/"
-        if [ "${{ matrix.archive }}" = "zip" ]; then
-          zip -r "../../../../../TokenGenerator-${{ matrix.rid }}.zip" ./*
-        else
-          tar -czf "../../../../../TokenGenerator-${{ matrix.rid }}.tar.gz" ./*
-        fi
+        asset_content_type: ${{ matrix.archive == 'zip' ? 'application/zip' : 'application/gzip' }}
         
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1
