@@ -1,137 +1,114 @@
-﻿using Microsoft.Extensions.Configuration;
-using System.Text;
+﻿// Token Generator/Program.cs
+using System.CommandLine;
+using Microsoft.Extensions.Options;
 using Token_Generator.Services;
+using Token_Generator.Models;
 
 class Program
 {
-    private readonly ConfigurationService _configService;
-    private readonly EncryptionService _encryptionService;
-    private readonly FileService _fileService;
-    private readonly DisplayService _displayService;
-
-    public Program(IConfiguration configuration)
+    public static async Task<int> Main(string[] args)
     {
-        _configService = new ConfigurationService(configuration);
-        _encryptionService = new EncryptionService(_configService);
-        _fileService = new FileService();
-        _displayService = new DisplayService(_configService);
-    }
+        var rootCommand = new RootCommand("Token Generator CLI Tool");
 
-    public static async Task Main()
-    {
-        Console.OutputEncoding = Encoding.UTF8;
+        var modeOption = new Option<string>(
+            "--mode", "Operation mode (encrypt/decrypt)")
+        { IsRequired = true };
 
-        var config = new ConfigurationBuilder()
-            .SetBasePath(AppContext.BaseDirectory)
-            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-            .Build();
+        var algorithmOption = new Option<string>(
+            "--algorithm", "Encryption algorithm to use");
 
-        var program = new Program(config);
-        await program.RunAsync();
-    }
+        var encoderOption = new Option<string>(
+            "--encoder", "Encoding method to use");
 
-    private async Task RunAsync()
-    {
-        bool continueProgram = true;
-        while ( continueProgram )
+        var titleOption = new Option<string>(
+            "--title", "Title for encryption");
+
+        var instructionsOption = new Option<string>(
+            "--instructions", "Instructions for encryption");
+
+        var tokenOption = new Option<string>(
+            "--token", "Token to decrypt");
+
+        var keyOption = new Option<string>(
+            "--key", "Decryption key (Base64)");
+
+        var outputOption = new Option<FileInfo?>(
+            "--output", "Output file path");
+
+        var silentOption = new Option<bool>(
+            "--silent", "Suppress non-essential output");
+
+        var listAlgorithmsOption = new Option<bool>(
+            "--list-algorithms", "List available encryption algorithms");
+
+        var listEncodersOption = new Option<bool>(
+            "--list-encoders", "List available encoding methods");
+
+        rootCommand.AddOption(modeOption);
+        rootCommand.AddOption(algorithmOption);
+        rootCommand.AddOption(encoderOption);
+        rootCommand.AddOption(titleOption);
+        rootCommand.AddOption(instructionsOption);
+        rootCommand.AddOption(tokenOption);
+        rootCommand.AddOption(keyOption);
+        rootCommand.AddOption(outputOption);
+        rootCommand.AddOption(silentOption);
+        rootCommand.AddOption(listAlgorithmsOption);
+        rootCommand.AddOption(listEncodersOption);
+
+        rootCommand.SetHandler(async (context) =>
         {
-            try
+            var options = new CliOptions
             {
-                _displayService.DisplayMainMenu();
-                var mode = _displayService.GetOperationMode();
+                Mode = context.ParseResult.GetValueForOption(modeOption),
+                Algorithm = context.ParseResult.GetValueForOption(algorithmOption),
+                Encoder = context.ParseResult.GetValueForOption(encoderOption),
+                Title = context.ParseResult.GetValueForOption(titleOption),
+                Instructions = context.ParseResult.GetValueForOption(instructionsOption),
+                Token = context.ParseResult.GetValueForOption(tokenOption),
+                Key = context.ParseResult.GetValueForOption(keyOption),
+                OutputFile = context.ParseResult.GetValueForOption(outputOption)?.FullName,
+                Silent = context.ParseResult.GetValueForOption(silentOption),
+                ListAlgorithms = context.ParseResult.GetValueForOption(listAlgorithmsOption),
+                ListEncoders = context.ParseResult.GetValueForOption(listEncodersOption)
+            };
 
-                switch ( mode )
-                {
-                    case "1":
-                        await PerformEncryptionAsync();
-                        break;
-                    case "2":
-                        await PerformDecryptionAsync();
-                        break;
-                }
-            }
-            catch ( Exception ex )
-            {
-                Console.WriteLine($"\nAn error occurred: {ex.Message}");
-            }
+            var config = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .Build();
 
-            continueProgram = _displayService.PromptContinue();
-            if ( continueProgram )
-            {
-                Console.Clear();
-            }
-        }
+            var program = new Program(config);
+            await program.RunWithOptionsAsync(options);
+        });
 
-        Console.WriteLine("\nThank you for using the Token Generator. Press any key to exit.");
-        Console.ReadKey();
+        return await rootCommand.InvokeAsync(args);
     }
 
-    private async Task PerformEncryptionAsync()
+    private async Task RunWithOptionsAsync(CliOptions options)
     {
-        _displayService.DisplayEncryptionMethods();
-        var selectedAlgorithm = _displayService.SelectEncryptionAlgorithm();
-
-        _displayService.DisplayEncodingMethods();
-        var selectedEncoding = _displayService.SelectEncodingMethod();
-
-        var (title, instructions) = _displayService.GetUserInput();
-
-        try
+        if ( options.ListAlgorithms )
         {
-            string combinedData = $"{title};{instructions}";
-            var (encryptedData, key) = _encryptionService.Encrypt(selectedAlgorithm.Name, combinedData);
-            string encodedToken = _encryptionService.EncodeData(encryptedData, selectedEncoding.Name);
-
-            _displayService.DisplayResults(
-                encodedToken,
-                key,
-                selectedAlgorithm,
-                selectedEncoding,
-                Encoding.UTF8.GetByteCount(combinedData),
-                encryptedData.Length
-            );
-
-            await _fileService.SaveTokenAsync(
-                encodedToken,
-                Convert.ToBase64String(key),
-                selectedAlgorithm.Name,
-                selectedEncoding.Name
-            );
+            _displayService.DisplayEncryptionMethods();
+            return;
         }
-        catch ( Exception ex )
+
+        if ( options.ListEncoders )
         {
-            Console.WriteLine($"\nEncryption failed: {ex.Message}");
+            _displayService.DisplayEncodingMethods();
+            return;
         }
-    }
 
-    private async Task PerformDecryptionAsync()
-    {
-        _displayService.DisplayEncryptionMethods();
-        var selectedAlgorithm = _displayService.SelectEncryptionAlgorithm();
-
-        _displayService.DisplayEncodingMethods();
-        var selectedEncoding = _displayService.SelectEncodingMethod();
-
-        try
+        switch ( options.Mode?.ToLower() )
         {
-            // Get token and key using DisplayService
-            Console.WriteLine("\nPaste the encoded token:");
-            string encodedToken = Console.ReadLine() ?? throw new ArgumentNullException("Token cannot be null");
-
-            Console.WriteLine("\nPaste the decryption key (Base64):");
-            string keyBase64 = Console.ReadLine() ?? throw new ArgumentNullException("Key cannot be null");
-            byte[] key = Convert.FromBase64String(keyBase64);
-
-            // Perform decryption
-            byte[] encryptedData = _encryptionService.DecodeData(encodedToken, selectedEncoding.Name);
-            string decryptedText = _encryptionService.Decrypt(selectedAlgorithm.Name, encryptedData, key);
-
-            // Display results using DisplayService
-            _displayService.DisplayDecryptedData(Encoding.UTF8.GetBytes(decryptedText));
-        }
-        catch ( Exception ex )
-        {
-            Console.WriteLine($"\nDecryption failed: {ex.Message}");
+            case "encrypt":
+                await PerformEncryptionAsync(options);
+                break;
+            case "decrypt":
+                await PerformDecryptionAsync(options);
+                break;
+            default:
+                throw new ArgumentException("Invalid mode specified. Use 'encrypt' or 'decrypt'.");
         }
     }
 }
