@@ -125,7 +125,17 @@ namespace Token_Generator.Services
         public string GetOperationMode()
         {
             string? input = Console.ReadLine();
-            return input == "2" ? "2" : "1";
+            // Convert numeric input to actual mode
+            return input switch
+            {
+                "1" => "encrypt",
+                "2" => "decrypt",
+                "decrypt" => "decrypt",
+                "encrypt" => "encrypt",
+                "en" => "encrypt",
+                "de" => "decrypt",
+                _ => "encrypt" 
+            };
         }
 
         public bool PromptContinue()

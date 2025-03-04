@@ -1,0 +1,18 @@
+[
+  {
+    "mode": "encrypt",
+    "algorithm": "ChaCha20",
+    "encoder": "Base64",
+    "title": "Test 1",
+    "instructions": "Test Instructions 1",
+    "outputFile": "output1.txt"
+  },
+  {
+    "mode": "encrypt",
+    "algorithm": "ChaCha20",
+    "encoder": "Base64",
+    "title": "Test 2",
+    "instructions": "Test Instructions 2",
+    "outputFile": "output2.txt"
+  }
+]
