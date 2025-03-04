@@ -20,15 +20,11 @@ jobs:
 
     - name: Create Release
       id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+      uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ steps.version.outputs.version }}
-        release_name: Release v${{ steps.version.outputs.version }}
-        draft: false  
-        prerelease: false  
-
+        name: Release v${{ steps.version.outputs.version }}
+        generate_release_notes: true
   build:
     needs: create-release
     runs-on: ubuntu-latest
@@ -77,34 +73,36 @@ jobs:
       
     - name: Build
       run: |
-        # Update this path if your project file is in a different location
-        dotnet publish "Token Generator/Token Generator.csproj" -c Release -r ${{ matrix.rid }} \
-        --self-contained true \
-        /p:PublishSingleFile=true \
-        /p:PublishTrimmed=true \
-        /p:IncludeNativeLibrariesForSelfExtract=true \
-        /p:EnableCompressionInSingleFile=true \
-        /p:DebugType=embedded
+        dotnet publish "Token Generator/Token Generator.csproj" \
+          -c Release \
+          -r ${{ matrix.rid }} \
+          --self-contained true \
+          /p:PublishSingleFile=true \
+          /p:PublishTrimmed=true \
+          /p:IncludeNativeLibrariesForSelfExtract=true \
+          /p:EnableCompressionInSingleFile=true \
+          /p:DebugType=embedded
 
     - name: Set executable permissions (Unix)
       if: matrix.os != 'windows'
       run: |
-        # Update this path if your output directory is different
         cd "Token Generator/bin/Release/net8.0/${{ matrix.rid }}/publish/"
         chmod +x "Token Generator"
 
     - name: Create Archive
       run: |
-        # Update this path if your output directory is different
         cd "Token Generator/bin/Release/net8.0/${{ matrix.rid }}/publish/"
-        asset_content_type: ${{ matrix.archive == 'zip' ? 'application/zip' : 'application/gzip' }}
         
+        if [ "${{ matrix.archive }}" = "zip" ]; then
+          zip -r TokenGenerator-${{ matrix.rid }}.zip .
+        else
+          tar -czvf TokenGenerator-${{ matrix.rid }}.tar.gz .
+        fi
+        
+        mv TokenGenerator-${{ matrix.rid }}.${{ matrix.archive }} ..
+
     - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+      uses: softprops/action-gh-release@v1
       with:
-        upload_url: ${{ needs.create-release.outputs.upload_url }}
-        asset_path: ./TokenGenerator-${{ matrix.rid }}.${{ matrix.archive }}
-        asset_name: TokenGenerator-${{ matrix.rid }}.${{ matrix.archive }}
-        asset_content_type: ${{ matrix.archive == 'zip' && 'application/zip' || 'application/gzip' }}
+        files: |
+          Token Generator/bin/Release/net8.0/${{ matrix.rid }}/publish/TokenGenerator-${{ matrix.rid }}.${{ matrix.archive }}
