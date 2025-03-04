@@ -1,0 +1,114 @@
+name: Create Release
+
+on:
+  push:
+    branches: [ main ]
+    
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write 
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      version: ${{ steps.version.outputs.version }}
+    
+    steps:
+    - name: Get version
+      id: version
+      run: echo "version=$(date +'%Y.%m.%d.%H%M')" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+      with:
+        tag_name: v${{ steps.version.outputs.version }}
+        release_name: Release v${{ steps.version.outputs.version }}
+        draft: false  
+        prerelease: false  
+
+  build:
+    needs: create-release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows
+            ext: .exe
+            archive: zip
+          - rid: win-x86
+            os: windows
+            ext: .exe
+            archive: zip
+          - rid: win-arm64
+            os: windows
+            ext: .exe
+            archive: zip
+          - rid: linux-x64
+            os: linux
+            ext: ''
+            archive: tar.gz
+          - rid: linux-arm64
+            os: linux
+            ext: ''
+            archive: tar.gz
+          - rid: osx-x64
+            os: macos
+            ext: ''
+            archive: tar.gz
+          - rid: osx-arm64
+            os: macos
+            ext: ''
+            archive: tar.gz
+            
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 8.0.x
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build
+      run: |
+        # Update this path if your project file is in a different location
+        dotnet publish "Token Generator/Token Generator.csproj" -c Release -r ${{ matrix.rid }} \
+        --self-contained true \
+        /p:PublishSingleFile=true \
+        /p:PublishTrimmed=true \
+        /p:IncludeNativeLibrariesForSelfExtract=true \
+        /p:EnableCompressionInSingleFile=true \
+        /p:DebugType=embedded
+
+    - name: Set executable permissions (Unix)
+      if: matrix.os != 'windows'
+      run: |
+        # Update this path if your output directory is different
+        cd "Token Generator/bin/Release/net8.0/${{ matrix.rid }}/publish/"
+        chmod +x "Token Generator"
+
+    - name: Create Archive
+      run: |
+        # Update this path if your output directory is different
+        cd "Token Generator/bin/Release/net8.0/${{ matrix.rid }}/publish/"
+        if [ "${{ matrix.archive }}" = "zip" ]; then
+          zip -r "../../../../../TokenGenerator-${{ matrix.rid }}.zip" ./*
+        else
+          tar -czf "../../../../../TokenGenerator-${{ matrix.rid }}.tar.gz" ./*
+        fi
+        
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: ./TokenGenerator-${{ matrix.rid }}.${{ matrix.archive }}
+        asset_name: TokenGenerator-${{ matrix.rid }}.${{ matrix.archive }}
+        asset_content_type: ${{ matrix.archive == 'zip' && 'application/zip' || 'application/gzip' }}
