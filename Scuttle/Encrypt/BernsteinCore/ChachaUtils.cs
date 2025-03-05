@@ -5,7 +5,7 @@ using System.Runtime.Intrinsics.Arm;
 using System.Numerics;
 using System.Runtime.InteropServices;
 
-namespace Scuttle.Encrypt.ChaChaCore
+namespace Scuttle.Encrypt.BernSteinCore
 {
     internal static class ChaChaUtils
     {

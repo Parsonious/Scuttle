@@ -5,7 +5,7 @@ using System.Runtime.Intrinsics.Arm;
 using System.Security.Cryptography;
 using Scuttle.Interfaces;
 using Scuttle.Base;
-using Scuttle.Encrypt.ChaChaCore;
+using Scuttle.Encrypt.BernsteinCore;
 using Scuttle.Helpers;
 
 namespace Scuttle.Encrypt

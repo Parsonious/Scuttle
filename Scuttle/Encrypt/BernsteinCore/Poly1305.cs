@@ -6,7 +6,7 @@ using System.Runtime.Intrinsics.X86;
 using System.Security.Cryptography;
 using Scuttle.Helpers;
 
-namespace Scuttle.Encrypt.ChaChaCore
+namespace Scuttle.Encrypt.BernSteinCore
 {
     internal static class Poly1305
     {

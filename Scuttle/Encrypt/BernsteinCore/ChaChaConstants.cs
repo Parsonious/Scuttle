@@ -1,4 +1,4 @@
-﻿namespace Scuttle.Encrypt.ChaChaCore
+﻿namespace Scuttle.Encrypt.BernSteinCore
 {
     // This class contains all shared constants for ChaCha implementations
     internal static class ChaChaConstants
@@ -18,5 +18,6 @@
         // Algorithm-specific constants
         public const int ChaCha20NonceSize = 12;  // 96 bits
         public const int XChaCha20NonceSize = 24; // 192 bits for XChaCha20
+        public const int Salsa20NonceSize = 8;
     }
 }

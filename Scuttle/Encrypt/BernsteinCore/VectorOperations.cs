@@ -5,7 +5,7 @@ using System.Runtime.Intrinsics.X86;
 using System.Runtime.Intrinsics.Arm;
 using Scuttle.Helpers;
 
-namespace Scuttle.Encrypt.ChaChaCore
+namespace Scuttle.Encrypt.BernsteinCore
 {
     internal static class VectorOperations
     {

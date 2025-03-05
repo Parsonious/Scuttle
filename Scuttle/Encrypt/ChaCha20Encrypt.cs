@@ -9,7 +9,7 @@ using System.Numerics;
 using Scuttle.Interfaces;
 using Scuttle.Base;
 using Scuttle.Helpers;
-using Scuttle.Encrypt.ChaChaCore;
+using Scuttle.Encrypt.BernsteinCore;
 
 namespace Scuttle.Encrypt
 {
