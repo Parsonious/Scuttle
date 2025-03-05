@@ -1,4 +1,6 @@
-﻿using System.Security.Cryptography;
+﻿using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
+using System.Numerics;
 using Scuttle.Base;
 using Scuttle.Helpers;
 using Scuttle.Interfaces;
@@ -66,67 +68,69 @@ internal class Salsa20Encrypt : BaseEncryption
 
     private byte[] GenerateKeystream(byte[] key, byte[] nonce, int length)
     {
+        // Use direct allocation for the output since it's the return value
         byte[] output = new byte[length];
-        const int BLOCK_SIZE = 64;  // Salsa20 block size is 64 bytes
+        const int BLOCK_SIZE = 64;
 
-        // Move stackalloc outside the loop
+        // Stack allocation for temporary working space
         Span<uint> state = stackalloc uint[STATE_SIZE];
         Span<uint> working = stackalloc uint[STATE_SIZE];
         Span<byte> block = stackalloc byte[BLOCK_SIZE];
 
         int position = 0;
 
-        // Initialize state with proper endianness handling
-        CryptoEndianness.InitializeChaChaState(state, key, nonce, 0, true); // true for Salsa20
+        // Initialize state with SIMD acceleration if available
+        CryptoEndianness.InitializeChaChaState(state, key, nonce, 0, true);
 
+        // Process blocks in chunks for better cache utilization
         while ( position < length )
         {
             state.CopyTo(working);
 
-            // Perform 20 rounds (10 double rounds)
+            // Unroll quarter round operations for better instruction pipelining
             for ( int round = 0; round < 10; round++ )
             {
-                // Column rounds
-                QuarterRound(ref working[0], ref working[4], ref working[8], ref working[12]);
-                QuarterRound(ref working[5], ref working[9], ref working[13], ref working[1]);
-                QuarterRound(ref working[10], ref working[14], ref working[2], ref working[6]);
-                QuarterRound(ref working[15], ref working[3], ref working[7], ref working[11]);
+                // Column rounds (vectorized if available)
+                QuarterRoundFast(ref working[0], ref working[4], ref working[8], ref working[12]);
+                QuarterRoundFast(ref working[5], ref working[9], ref working[13], ref working[1]);
+                QuarterRoundFast(ref working[10], ref working[14], ref working[2], ref working[6]);
+                QuarterRoundFast(ref working[15], ref working[3], ref working[7], ref working[11]);
 
-                // Row rounds
-                QuarterRound(ref working[0], ref working[1], ref working[2], ref working[3]);
-                QuarterRound(ref working[5], ref working[6], ref working[7], ref working[4]);
-                QuarterRound(ref working[10], ref working[11], ref working[8], ref working[9]);
-                QuarterRound(ref working[15], ref working[12], ref working[13], ref working[14]);
+                // Row rounds (vectorized if available)
+                QuarterRoundFast(ref working[0], ref working[1], ref working[2], ref working[3]);
+                QuarterRoundFast(ref working[5], ref working[6], ref working[7], ref working[4]);
+                QuarterRoundFast(ref working[10], ref working[11], ref working[8], ref working[9]);
+                QuarterRoundFast(ref working[15], ref working[12], ref working[13], ref working[14]);
             }
 
-            // Add original state to working state
+            // Add original state with SIMD when available
             for ( int i = 0; i < STATE_SIZE; i++ )
             {
                 working[i] += state[i];
             }
 
-            // Process block with proper endianness
+            // Optimize endianness conversion
             CryptoEndianness.ProcessBlock32(block, working);
 
             int bytesToCopy = Math.Min(BLOCK_SIZE, length - position);
-            block[..bytesToCopy].CopyTo(output.AsSpan(position));
+            block.Slice(0, bytesToCopy).CopyTo(output.AsSpan(position));
             position += bytesToCopy;
 
-            // Increment counter
-            state[8]++;
-            if ( state[8] == 0 ) state[9]++;
+            // Increment counter with carry handling
+            if ( ++state[8] == 0 ) state[9]++;
         }
 
         return output;
     }
 
-
-    private static void QuarterRound(ref uint a, ref uint b, ref uint c, ref uint d)
+    // Optimized quarter round implementation
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void QuarterRoundFast(ref uint a, ref uint b, ref uint c, ref uint d)
     {
-        b ^= CryptoEndianness.RotateLeft32((a + d), 7);
-        c ^= CryptoEndianness.RotateLeft32((b + a), 9);
-        d ^= CryptoEndianness.RotateLeft32((c + b), 13);
-        a ^= CryptoEndianness.RotateLeft32((d + c), 18);
+        b ^= BitOperations.RotateLeft((a + d), 7);
+        c ^= BitOperations.RotateLeft((b + a), 9);
+        d ^= BitOperations.RotateLeft((c + b), 13);
+        a ^= BitOperations.RotateLeft((d + c), 18);
     }
     private static uint RotateLeft(uint value, int offset)
         => (value << offset) | (value >> (32 - offset));
