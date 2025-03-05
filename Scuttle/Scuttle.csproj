@@ -26,12 +26,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Encrypt\Strategies\ChaCha20\" />
     <Folder Include="Encrypt\Strategies\AES\" />
     <Folder Include="Encrypt\Strategies\RC2\" />
     <Folder Include="Encrypt\Strategies\TripleDES\" />
     <Folder Include="Encrypt\Strategies\ThreeFish\" />
-    <Folder Include="Encrypt\Strategies\xChaCha20\" />
   </ItemGroup>
 
 </Project>

@@ -30,13 +30,15 @@ namespace Scuttle.Encrypt.Strategies.Salsa20
             // We can process two 64-byte blocks at once with AVX2
             byte[] blockBytes = ArrayPool<byte>.Shared.Rent(128); // 2 * BlockSize
 
+            // Fix #7: Move stackalloc outside the loop to prevent stack overflow warning
+            Span<uint> blockState = stackalloc uint[16];
+
             try
             {
                 // Process pairs of blocks as long as we have at least 1 full block to process
                 while ( position + 64 <= inputChunk.Length )
                 {
                     // Make a copy of the state for these blocks
-                    Span<uint> blockState = stackalloc uint[16];
                     initialState.CopyTo(blockState);
 
                     // Set the counter for this block pair
@@ -73,7 +75,6 @@ namespace Scuttle.Encrypt.Strategies.Salsa20
                 if ( position < inputChunk.Length )
                 {
                     // Make a copy of the state for this block
-                    Span<uint> blockState = stackalloc uint[16];
                     initialState.CopyTo(blockState);
 
                     // Set the counter for this block
@@ -171,16 +172,18 @@ namespace Scuttle.Encrypt.Strategies.Salsa20
                 // Diagonal rounds
                 // Note: AVX2 doesn't have efficient rotation across lanes,
                 // so we implement the usual diagonal pattern using permutes and rotations
-                x[1] = Avx2.PermuteVar8x32(x[1], Vector256.Create(1, 2, 3, 0, 5, 6, 7, 4));
-                x[2] = Avx2.PermuteVar8x32(x[2], Vector256.Create(2, 3, 0, 1, 6, 7, 4, 5));
-                x[3] = Avx2.PermuteVar8x32(x[3], Vector256.Create(3, 0, 1, 2, 7, 4, 5, 6));
+
+                // Fix issues #1-#6: Add AsInt32() and AsUInt32() conversions for PermuteVar8x32
+                x[1] = Avx2.PermuteVar8x32(x[1].AsInt32(), Vector256.Create(1, 2, 3, 0, 5, 6, 7, 4)).AsUInt32();
+                x[2] = Avx2.PermuteVar8x32(x[2].AsInt32(), Vector256.Create(2, 3, 0, 1, 6, 7, 4, 5)).AsUInt32();
+                x[3] = Avx2.PermuteVar8x32(x[3].AsInt32(), Vector256.Create(3, 0, 1, 2, 7, 4, 5, 6)).AsUInt32();
 
                 SalsaQuarterRoundAvx2(ref x[0], ref x[1], ref x[2], ref x[3]);
 
                 // Restore original positions
-                x[1] = Avx2.PermuteVar8x32(x[1], Vector256.Create(3, 0, 1, 2, 7, 4, 5, 6));
-                x[2] = Avx2.PermuteVar8x32(x[2], Vector256.Create(2, 3, 0, 1, 6, 7, 4, 5));
-                x[3] = Avx2.PermuteVar8x32(x[3], Vector256.Create(1, 2, 3, 0, 5, 6, 7, 4));
+                x[1] = Avx2.PermuteVar8x32(x[1].AsInt32(), Vector256.Create(3, 0, 1, 2, 7, 4, 5, 6)).AsUInt32();
+                x[2] = Avx2.PermuteVar8x32(x[2].AsInt32(), Vector256.Create(2, 3, 0, 1, 6, 7, 4, 5)).AsUInt32();
+                x[3] = Avx2.PermuteVar8x32(x[3].AsInt32(), Vector256.Create(1, 2, 3, 0, 5, 6, 7, 4)).AsUInt32();
             }
 
             // Add initial state back to working state
