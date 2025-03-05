@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "Token Generator": {
+    "Scuttle": {
       "commandName": "Project"
     },
     "Container (Dockerfile)": {

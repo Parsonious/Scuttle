@@ -10,19 +10,19 @@ WORKDIR /app
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["Token Generator/Token Generator.csproj", "Token Generator/"]
-RUN dotnet restore "./Token Generator/Token Generator.csproj"
+COPY ["Scuttle/Scuttle.csproj", "Scuttle/"]
+RUN dotnet restore "./Scuttle/Scuttle.csproj"
 COPY . .
-WORKDIR "/src/Token Generator"
-RUN dotnet build "./Token Generator.csproj" -c $BUILD_CONFIGURATION -o /app/build
+WORKDIR "/src/Scuttle"
+RUN dotnet build "./Scuttle.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # This stage is used to publish the service project to be copied to the final stage
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./Token Generator.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "./Scuttle.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 # This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "Token Generator.dll"]
+ENTRYPOINT ["dotnet", "Scuttle.dll"]

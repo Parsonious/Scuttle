@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Scuttle", "Scuttle\Scuttle.
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F1332BAA-D1A5-4037-BC83-D1253B045E14}"
 	ProjectSection(SolutionItems) = preProject
-		Token Generator\appsettings.json = Token Generator\appsettings.json
+		Scuttle\appsettings.json = Scuttle\appsettings.json
 	EndProjectSection
 EndProject
 Global

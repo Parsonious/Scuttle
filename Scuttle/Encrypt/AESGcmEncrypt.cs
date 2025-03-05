@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using Scuttle.Enums;
 using Scuttle.Base;
 using Scuttle.Interfaces;
+using System.Buffers;
 
 namespace Scuttle.Encrypt
 {
@@ -27,20 +28,40 @@ namespace Scuttle.Encrypt
             if ( key == null || key.Length != KeySize )
                 throw new ArgumentException($"Key must be {KeySize} bytes.", nameof(key));
 
-            using var aesGcm = new AesGcm(key, TagSize);
-            byte[] nonce = new byte[NonceSize];
-            RandomNumberGenerator.Fill(nonce);
+            // Use ArrayPool instead of new allocations for large buffers
+            byte[] result = ArrayPool<byte>.Shared.Rent(NonceSize + data.Length + TagSize);
+            byte[] tag = ArrayPool<byte>.Shared.Rent(TagSize);
+            byte[] nonce = ArrayPool<byte>.Shared.Rent(NonceSize);
+            byte[] ciphertext = ArrayPool<byte>.Shared.Rent(data.Length);
+            try
+    {
+                RandomNumberGenerator.Fill(nonce.AsSpan(0, NonceSize));
 
-            byte[] ciphertext = new byte[data.Length];
-            byte[] tag = new byte[TagSize];
-            aesGcm.Encrypt(nonce, data, ciphertext, tag);
+                using var aesGcm = new AesGcm(key, TagSize);
+                aesGcm.Encrypt(
+                    nonce.AsSpan(0, NonceSize),
+                    data.AsSpan(),
+                    ciphertext.AsSpan(0, data.Length),
+                    tag.AsSpan(0, TagSize));
 
-            byte[] result = new byte[NonceSize + data.Length + TagSize];
-            Buffer.BlockCopy(nonce, 0, result, 0, NonceSize);
-            Buffer.BlockCopy(ciphertext, 0, result, NonceSize, ciphertext.Length);
-            Buffer.BlockCopy(tag, 0, result, NonceSize + ciphertext.Length, TagSize);
+                // Combine results into a single buffer
+                Buffer.BlockCopy(nonce, 0, result, 0, NonceSize);
+                Buffer.BlockCopy(ciphertext, 0, result, NonceSize, data.Length);
+                Buffer.BlockCopy(tag, 0, result, NonceSize + data.Length, TagSize);
 
-            return result;
+                // Create a properly sized output array
+                byte[] output = new byte[NonceSize + data.Length + TagSize];
+                Buffer.BlockCopy(result, 0, output, 0, output.Length);
+                return output;
+            }
+            finally
+            {
+                // Return rented arrays
+                ArrayPool<byte>.Shared.Return(result);
+                ArrayPool<byte>.Shared.Return(tag);
+                ArrayPool<byte>.Shared.Return(nonce);
+                ArrayPool<byte>.Shared.Return(ciphertext);
+            }
         }
 
         public override byte[] Decrypt(byte[] encryptedData, byte[] key)

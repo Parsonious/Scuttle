@@ -1,13 +1,11 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using System;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Scuttle.Models;
 using Scuttle.Services;
+using Scuttle.Models.Art;
 
 class Program
 {
@@ -18,20 +16,23 @@ class Program
     private readonly ILogger<Program> _logger;
     private readonly ArgumentParser _parser;
     private readonly OutputFormatter _formatter;
+    private readonly Util _utilities;
 
     public Program(
         IConfiguration configuration,
         ILogger<Program> logger,
         ArgumentParser parser,
-        OutputFormatter formatter)
+        OutputFormatter formatter,
+        Util utilities)
     {
         _configService = new ConfigurationService(configuration);
         _encryptionService = new EncryptionService(_configService);
-        _fileService = new FileService();
         _displayService = new DisplayService(_configService);
+        _fileService = new FileService(_displayService);
         _logger = logger;
         _parser = parser;
         _formatter = formatter;
+        _utilities = utilities;
     }
 
     public static async Task Main(string[] args)
@@ -57,10 +58,11 @@ class Program
         var parserLogger = loggerFactory.CreateLogger<ArgumentParser>();
         var parser = new ArgumentParser(config, parserLogger);
         var formatter = new OutputFormatter();
+        var utilities = new Util();
 
         try
         {
-            var program = new Program(config, logger, parser, formatter);
+            var program = new Program(config, logger, parser, formatter, utilities);
             await program.RunAsync(args);
         }
         catch ( Exception ex )
@@ -129,13 +131,14 @@ class Program
 
     private async Task RunInteractiveModeAsync()
     {
+        _displayService.DisplayWelcomeBanner();
+
         bool continueProgram = true;
         while ( continueProgram )
         {
             try
             {
-                _displayService.DisplayMainMenu();
-                var mode = _displayService.GetOperationMode();
+                var mode = _displayService.SelectOperationMode();
 
                 var options = new CliOptions
                 {
@@ -151,14 +154,15 @@ class Program
                 Console.WriteLine($"\nAn error occurred: {ex.Message}");
             }
 
-            continueProgram = _displayService.PromptContinue();
+            continueProgram = _displayService.YesNoPrompt();
             if ( continueProgram )
             {
                 Console.Clear();
+                _displayService.DisplayWelcomeBanner();
             }
         }
 
-        Console.WriteLine("\nThank you for using the Token Generator. Press any key to exit.");
+        Console.WriteLine("\nThank you for using the Scuttle. Press any key to exit.");
         Console.ReadKey();
     }
 
@@ -246,6 +250,7 @@ class Program
 
     private async Task PerformEncryptionAsync(CliOptions options)
     {
+
         if ( options.Algorithm != null && options.Encoder != null )
         {
             var algorithm = _configService.GetAlgorithmMetadata(options.Algorithm);
@@ -256,8 +261,15 @@ class Program
             try
             {
                 string combinedData = $"{options.Title};{options.Instructions}";
-                var (encryptedData, key) = _encryptionService.Encrypt(algorithm.Name, combinedData);
-                string encodedToken = _encryptionService.EncodeData(encryptedData, options.Encoder);
+
+                var result = await _utilities.ExecuteWithDelayedSpinner(async () =>
+                {
+                    var (encryptedData, key) = _encryptionService.Encrypt(algorithm.Name, combinedData);
+                    string encodedToken = _encryptionService.EncodeData(encryptedData, options.Encoder);
+                    return (encryptedData, key, encodedToken);
+                }, "Encrypting data...");
+
+                var (encryptedData, key, encodedToken) = result;
 
                 if ( !options.Silent )
                 {
@@ -265,7 +277,7 @@ class Program
                         encodedToken,
                         key,
                         algorithm,
-                        encoderMetadata,  // Use EncoderMetadata instead of IEncoder
+                        encoderMetadata, 
                         Encoding.UTF8.GetByteCount(combinedData),
                         encryptedData.Length
                     );
@@ -277,7 +289,7 @@ class Program
                         encodedToken,
                         Convert.ToBase64String(key),
                         algorithm.Name,
-                        encoderMetadata.Name  // Use EncoderMetadata.Name
+                        encoderMetadata.Name
                     );
                 }
             }
@@ -290,10 +302,7 @@ class Program
         else
         {
             // Interactive mode
-            _displayService.DisplayEncryptionMethods();
             var selectedAlgorithm = _displayService.SelectEncryptionAlgorithm();
-
-            _displayService.DisplayEncodingMethods();
             var selectedEncoding = _displayService.SelectEncodingMethod();
 
             var (title, instructions) = _displayService.GetUserInput();
@@ -301,14 +310,21 @@ class Program
             try
             {
                 string combinedData = $"{title};{instructions}";
-                var (encryptedData, key) = _encryptionService.Encrypt(selectedAlgorithm.Name, combinedData);
-                string encodedToken = _encryptionService.EncodeData(encryptedData, selectedEncoding.Name);
+
+                var result = await _utilities.ExecuteWithDelayedSpinner(async () =>
+                {
+                    var (encryptedData, key) = _encryptionService.Encrypt(selectedAlgorithm.Name, combinedData);
+                    string encodedToken = _encryptionService.EncodeData(encryptedData, selectedEncoding.Name);
+                    return (encryptedData, key, encodedToken);
+                }, "Encrypting data");
+
+                var (encryptedData, key, encodedToken) = result;
 
                 _displayService.DisplayResults(
                     encodedToken,
                     key,
                     selectedAlgorithm,
-                    selectedEncoding,  // Already EncoderMetadata
+                    selectedEncoding,  
                     Encoding.UTF8.GetByteCount(combinedData),
                     encryptedData.Length
                 );
@@ -339,8 +355,14 @@ class Program
             try
             {
                 byte[] key = Convert.FromBase64String(options.Key);
-                byte[] encryptedData = _encryptionService.DecodeData(options.Token, options.Encoder);
-                string decryptedText = _encryptionService.Decrypt(options.Algorithm, encryptedData, key);
+                string token = options.Token;
+                string algorithm = options.Algorithm;
+
+                var decryptedText = await _utilities.ExecuteWithDelayedSpinner(async () =>
+                {
+                    byte[] encryptedData = _encryptionService.DecodeData(token, options.Encoder);
+                    return _encryptionService.Decrypt(algorithm, encryptedData, key);
+                }, "Decrypting data");
 
                 if ( !options.Silent )
                 {
@@ -361,10 +383,7 @@ class Program
         else
         {
             // Interactive mode
-            _displayService.DisplayEncryptionMethods();
             var selectedAlgorithm = _displayService.SelectEncryptionAlgorithm();
-
-            _displayService.DisplayEncodingMethods();
             var selectedEncoding = _displayService.SelectEncodingMethod();
 
             try
@@ -376,11 +395,13 @@ class Program
                 string keyBase64 = Console.ReadLine() ?? throw new ArgumentNullException("Key cannot be null");
                 byte[] key = Convert.FromBase64String(keyBase64);
 
-                byte[] encryptedData = _encryptionService.DecodeData(encodedToken, selectedEncoding.Name);
-                string decryptedText = _encryptionService.Decrypt(selectedAlgorithm.Name, encryptedData, key);
+                var decryptedText = await _utilities.ExecuteWithDelayedSpinner(async () =>
+                {
+                    byte[] encryptedData = _encryptionService.DecodeData(encodedToken, selectedEncoding.Name);
+                    return _encryptionService.Decrypt(selectedAlgorithm.Name, encryptedData, key);
+                }, "Decrypting data");
 
                 _displayService.DisplayDecryptedData(Encoding.UTF8.GetBytes(decryptedText));
-                await Task.CompletedTask;
             }
             catch ( Exception ex )
             {
@@ -393,6 +414,6 @@ class Program
     private void ShowVersion()
     {
         var version = Assembly.GetExecutingAssembly().GetName().Version;
-        Console.WriteLine($"Token Generator v{version}");
+        Scuttle.Models.Art.Graphic.DisplayGraphicAndVersion(version.ToString());
     }
 }

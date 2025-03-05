@@ -3,7 +3,6 @@ using Scuttle.Encoders;
 using Scuttle.Interfaces;
 using Scuttle.Models;
 using Scuttle.Models.Configuration;
-using Scuttle.Models.Scuttle.Models;
 
 public class ConfigurationService
 {

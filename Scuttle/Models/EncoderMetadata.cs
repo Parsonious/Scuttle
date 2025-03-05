@@ -1,6 +1,4 @@
-﻿namespace Scuttle.Models
-{
-    namespace Scuttle.Models
+﻿ namespace Scuttle.Models
     {
         public record EncoderMetadata
         {
@@ -10,4 +8,3 @@
             public required bool IsUrlSafe { get; init; }
         }
     }
-}

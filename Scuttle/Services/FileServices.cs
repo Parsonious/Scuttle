@@ -2,11 +2,12 @@
 
 namespace Scuttle.Services
 {
-    internal class FileService
+    internal class FileService(DisplayService displayService)
     {
+        private readonly DisplayService _displayService = displayService;
         public async Task SaveTokenAsync(string token, string key, string encMethod, string encodeMethod)
         {
-            if ( !PromptSaveToFile() ) return;
+            if ( !_displayService.YesNoPrompt("Would you like to save the token and key to a file?") ) return;
 
             string? filePath = null;
             bool validPath = false;
@@ -19,7 +20,7 @@ namespace Scuttle.Services
                 validPath = await VerifyDirectoryAccessAsync(filePath);
                 if ( !validPath )
                 {
-                    if ( !PromptRetry() ) return;
+                    if ( !_displayService.YesNoPrompt("Would you like to try a different location?") ) return;
                 }
             }
 
@@ -61,7 +62,7 @@ namespace Scuttle.Services
 
         private string? GetFilePath()
         {
-            Console.WriteLine("\nEnter the file path and name (e.g., C:\\Users\\YourName\\Documents\\mytoken.txt):");
+            Console.WriteLine("\nEnter the file path and name (e.g., C:\\Sample\\Directory\\Location\\FileName.txt):");
             Console.WriteLine("Or press Enter to use the current directory.");
 
             string? input = Console.ReadLine();
@@ -98,7 +99,7 @@ namespace Scuttle.Services
         private string GenerateFileContent(string token, string key, string encMethod, string encodeMethod)
         {
             return new StringBuilder()
-                .AppendLine("Token Generator Output")
+                .AppendLine("Scuttle Output")
                 .AppendLine("--------------------")
                 .AppendLine($"Generated: {DateTime.Now}")
                 .AppendLine($"Encryption Method: {encMethod}")
@@ -109,20 +110,6 @@ namespace Scuttle.Services
                 .AppendLine(key)
                 .AppendLine("\nNote: Keep this file secure. The key is required to decrypt the token.")
                 .ToString();
-        }
-
-        private bool PromptSaveToFile()
-        {
-            Console.WriteLine("\nWould you like to save the token and key to a file? (y/n)");
-            string? response = Console.ReadLine()?.ToLower();
-            return response == "y" || response == "yes";
-        }
-
-        private bool PromptRetry()
-        {
-            Console.WriteLine("Would you like to try a different location? (y/n)");
-            string? response = Console.ReadLine()?.ToLower();
-            return response == "y" || response == "yes";
         }
     }
 }
