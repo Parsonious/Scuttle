@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Token_Generator.Enums
+namespace Scuttle.Enums
 {
     public enum EncodingType
     {

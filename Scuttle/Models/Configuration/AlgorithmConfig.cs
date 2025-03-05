@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Token_Generator.Models.Configuration
+namespace Scuttle.Models.Configuration
 {
     public class AlgorithmConfig
     {

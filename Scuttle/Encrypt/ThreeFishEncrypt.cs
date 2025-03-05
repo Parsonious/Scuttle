@@ -1,9 +1,9 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
-using Token_Generator.Base;
-using Token_Generator.Encoders;
-using Token_Generator.Helpers;
-using Token_Generator.Interfaces;
+using Scuttle.Base;
+using Scuttle.Encoders;
+using Scuttle.Helpers;
+using Scuttle.Interfaces;
 
 internal class ThreefishEncrypt : BaseEncryption
 {

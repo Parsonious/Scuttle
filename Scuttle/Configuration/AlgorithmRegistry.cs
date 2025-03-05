@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Token_Generator.Factories;
-using Token_Generator.Interfaces;
-using Token_Generator.Models;
+using Scuttle.Factories;
+using Scuttle.Interfaces;
+using Scuttle.Models;
 
-namespace Token_Generator.Configuration
+namespace Scuttle.Configuration
 {
     internal class AlgorithmRegistry
     {

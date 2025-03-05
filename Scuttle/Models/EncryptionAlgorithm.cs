@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Token_Generator.Interfaces;
+using Scuttle.Interfaces;
 
-namespace Token_Generator.Models
+namespace Scuttle.Models
 {
     internal class EncryptionAlgorithm
     {

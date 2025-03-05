@@ -1,4 +1,4 @@
-﻿namespace Token_Generator.Base
+﻿namespace Scuttle.Base
 {
     internal class Base64
     {

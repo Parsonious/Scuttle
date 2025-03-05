@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Token_Generator.Models;
+using Scuttle.Models;
 
-namespace Token_Generator.Services
+namespace Scuttle.Services
 {
     public class ArgumentParser
     {

@@ -1,5 +1,5 @@
-﻿using Token_Generator.Encrypt;
-using Token_Generator.Interfaces;
+﻿using Scuttle.Encrypt;
+using Scuttle.Interfaces;
 
 public class EncryptionFactory
 {

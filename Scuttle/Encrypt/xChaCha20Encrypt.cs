@@ -1,8 +1,8 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
-using Token_Generator.Interfaces;
+using Scuttle.Interfaces;
 using NSec.Cryptography;
-using Token_Generator.Base;
+using Scuttle.Base;
 
 internal class XChaCha20Encrypt : BaseEncryption
 {

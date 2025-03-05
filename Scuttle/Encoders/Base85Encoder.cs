@@ -1,7 +1,7 @@
-﻿using Token_Generator.Base;
-using Token_Generator.Interfaces;
+﻿using Scuttle.Base;
+using Scuttle.Interfaces;
 
-namespace Token_Generator.Encoders
+namespace Scuttle.Encoders
 {
     internal class Base85Encoder : IEncoder
     {

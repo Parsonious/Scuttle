@@ -1,9 +1,9 @@
 ﻿using Microsoft.Extensions.Configuration;
-using Token_Generator.Encoders;
-using Token_Generator.Interfaces;
-using Token_Generator.Models;
-using Token_Generator.Models.Configuration;
-using Token_Generator.Models.Token_Generator.Models;
+using Scuttle.Encoders;
+using Scuttle.Interfaces;
+using Scuttle.Models;
+using Scuttle.Models.Configuration;
+using Scuttle.Models.Scuttle.Models;
 
 public class ConfigurationService
 {

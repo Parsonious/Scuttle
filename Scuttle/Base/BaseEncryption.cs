@@ -1,8 +1,8 @@
 ﻿using System.Text;
-using Token_Generator.Interfaces;
-using Token_Generator.Encoders;
+using Scuttle.Interfaces;
+using Scuttle.Encoders;
 
-namespace Token_Generator.Base
+namespace Scuttle.Base
 {
     internal abstract class BaseEncryption : IEncryption
     {

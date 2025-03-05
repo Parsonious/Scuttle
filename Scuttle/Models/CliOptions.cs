@@ -1,4 +1,4 @@
-﻿namespace Token_Generator.Models
+﻿namespace Scuttle.Models
 {
     public class CliOptions
     {

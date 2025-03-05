@@ -1,6 +1,6 @@
 ﻿using System.Collections.Concurrent;
 
-namespace Token_Generator.Arithmetic
+namespace Scuttle.Arithmetic
 {
     internal class Encode
     {

@@ -1,6 +1,6 @@
 ﻿using System.Text.Json;
 
-namespace Token_Generator.Services
+namespace Scuttle.Services
 {
     public class OutputFormatter
     {

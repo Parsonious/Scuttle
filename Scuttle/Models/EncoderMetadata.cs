@@ -1,6 +1,6 @@
-﻿namespace Token_Generator.Models
+﻿namespace Scuttle.Models
 {
-    namespace Token_Generator.Models
+    namespace Scuttle.Models
     {
         public record EncoderMetadata
         {

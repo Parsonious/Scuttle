@@ -1,7 +1,7 @@
-﻿using Token_Generator.Interfaces;
-using Token_Generator.Base;
+﻿using Scuttle.Interfaces;
+using Scuttle.Base;
 
-namespace Token_Generator.Encoders
+namespace Scuttle.Encoders
 {
     internal class Base64Encoder : IEncoder
     {

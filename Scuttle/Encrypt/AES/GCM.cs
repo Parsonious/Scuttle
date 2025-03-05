@@ -6,9 +6,9 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using Token_Generator.Encoders;
+using Scuttle.Encoders;
 
-namespace Token_Generator.Encrypt.AES
+namespace Scuttle.Encrypt.AES
 {
     internal class GCM
     {

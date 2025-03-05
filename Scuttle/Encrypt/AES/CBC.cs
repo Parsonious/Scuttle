@@ -4,9 +4,9 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using Token_Generator.Base;
+using Scuttle.Base;
 
-namespace Token_Generator.Encrypt.AES
+namespace Scuttle.Encrypt.AES
 {
     internal class CBC
     {

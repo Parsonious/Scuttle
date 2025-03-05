@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Token_Generator.Models
+namespace Scuttle.Models
 {
     internal class EncodingMethod
     {

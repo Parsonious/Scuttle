@@ -1,5 +1,5 @@
 ﻿using System.Text;
-using Token_Generator.Configuration;
+using Scuttle.Configuration;
 
 public class EncryptionService
 {

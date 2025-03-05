@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace Token_Generator.Services
+namespace Scuttle.Services
 {
     internal class FileService
     {

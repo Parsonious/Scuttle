@@ -1,6 +1,6 @@
 ﻿using System.Security.Cryptography;
-using Token_Generator.Base;
-using Token_Generator.Interfaces;
+using Scuttle.Base;
+using Scuttle.Interfaces;
 
 internal class TripleDesEncrypt : BaseEncryption
 {

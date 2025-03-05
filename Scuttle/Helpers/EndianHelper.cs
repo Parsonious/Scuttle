@@ -1,6 +1,6 @@
 ﻿using System.Buffers.Binary;
 
-namespace Token_Generator.Helpers
+namespace Scuttle.Helpers
 {
     internal static class EndianHelper
     {

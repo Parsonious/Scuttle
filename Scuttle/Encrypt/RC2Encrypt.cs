@@ -1,7 +1,7 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
-using Token_Generator.Base;
-using Token_Generator.Interfaces;
+using Scuttle.Base;
+using Scuttle.Interfaces;
 
 internal class RC2Encrypt : BaseEncryption
 {

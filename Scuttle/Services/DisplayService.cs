@@ -1,8 +1,8 @@
 ﻿using System.Text;
-using Token_Generator.Models.Token_Generator.Models;
-using Token_Generator.Models;
+using Scuttle.Models.Scuttle.Models;
+using Scuttle.Models;
 
-namespace Token_Generator.Services
+namespace Scuttle.Services
 {
     internal class DisplayService
     {

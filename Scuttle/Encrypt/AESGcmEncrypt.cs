@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Security.Cryptography;
-using Token_Generator.Enums;
-using Token_Generator.Base;
-using Token_Generator.Interfaces;
+using Scuttle.Enums;
+using Scuttle.Base;
+using Scuttle.Interfaces;
 
-namespace Token_Generator.Encrypt
+namespace Scuttle.Encrypt
 {
     internal class AesGcmEncrypt : BaseEncryption
     {

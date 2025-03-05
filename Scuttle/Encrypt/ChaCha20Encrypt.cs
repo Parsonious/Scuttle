@@ -1,9 +1,9 @@
 ﻿using System.Security.Cryptography;
-using Token_Generator.Interfaces;
-using Token_Generator.Base;
-using Token_Generator.Helpers;
+using Scuttle.Interfaces;
+using Scuttle.Base;
+using Scuttle.Helpers;
 
-namespace Token_Generator.Encrypt
+namespace Scuttle.Encrypt
 {
     internal class ChaCha20Encrypt : BaseEncryption
     {

@@ -1,7 +1,7 @@
-﻿using Token_Generator.Encoders;
-using Token_Generator.Interfaces;
+﻿using Scuttle.Encoders;
+using Scuttle.Interfaces;
 
-namespace Token_Generator.Factories
+namespace Scuttle.Factories
 {
     internal class EncoderFactory
     {

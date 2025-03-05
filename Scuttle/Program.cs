@@ -6,8 +6,8 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Token_Generator.Models;
-using Token_Generator.Services;
+using Scuttle.Models;
+using Scuttle.Services;
 
 class Program
 {
@@ -49,7 +49,7 @@ class Program
                 .AddConfiguration(config.GetSection("Logging")) 
                 .AddFilter("Microsoft", LogLevel.Warning)
                 .AddFilter("System", LogLevel.Warning)
-                .AddFilter("Token_Generator", LogLevel.Information)
+                .AddFilter("Scuttle", LogLevel.Information)
                 .AddConsole();
         });
 
