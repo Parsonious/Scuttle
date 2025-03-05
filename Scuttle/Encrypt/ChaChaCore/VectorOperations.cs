@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 using System.Runtime.Intrinsics.Arm;
+using Scuttle.Helpers;
 
 namespace Scuttle.Encrypt.ChaChaCore
 {
@@ -23,10 +24,10 @@ namespace Scuttle.Encrypt.ChaChaCore
             else
             {
                 // Handle big-endian by swapping bytes
-                ChaChaUtils.WriteUInt32ToBytes(vector.GetElement(0), output.Slice(0, 4));
-                ChaChaUtils.WriteUInt32ToBytes(vector.GetElement(1), output.Slice(4, 4));
-                ChaChaUtils.WriteUInt32ToBytes(vector.GetElement(2), output.Slice(8, 4));
-                ChaChaUtils.WriteUInt32ToBytes(vector.GetElement(3), output.Slice(12, 4));
+                EndianHelper.WriteUInt32ToBytes(vector.GetElement(0), output.Slice(0, 4));
+                EndianHelper.WriteUInt32ToBytes(vector.GetElement(1), output.Slice(4, 4));
+                EndianHelper.WriteUInt32ToBytes(vector.GetElement(2), output.Slice(8, 4));
+                EndianHelper.WriteUInt32ToBytes(vector.GetElement(3), output.Slice(12, 4));
             }
         }
         // Store a Vector128<uint> to a byte span with endianness handling for ARM
@@ -52,7 +53,7 @@ namespace Scuttle.Encrypt.ChaChaCore
 
                 for ( int i = 0; i < 4; i++ )
                 {
-                    ChaChaUtils.WriteUInt32ToBytes(temp[i], output.Slice(i * 4, 4));
+                    EndianHelper.WriteUInt32ToBytes(temp[i], output.Slice(i * 4, 4));
                 }
             }
         }

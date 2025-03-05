@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 using System.Security.Cryptography;
+using Scuttle.Helpers;
 
 namespace Scuttle.Encrypt.ChaChaCore
 {
@@ -171,10 +172,10 @@ namespace Scuttle.Encrypt.ChaChaCore
             byte[] tag = new byte[16];
 
             // Use direct writes for better performance - explicit cast down to uInt since these values are meant to fit with 32 bits after modular ops
-            ChaChaUtils.WriteUInt32ToTag((uint) h0, tag, 0);
-            ChaChaUtils.WriteUInt32ToTag((uint) h1, tag, 4);
-            ChaChaUtils.WriteUInt32ToTag((uint) h2, tag, 8);
-            ChaChaUtils.WriteUInt32ToTag((uint) h3, tag, 12);
+            EndianHelper.WriteUInt32ToTag((uint) h0, tag, 0);
+            EndianHelper.WriteUInt32ToTag((uint) h1, tag, 4);
+            EndianHelper.WriteUInt32ToTag((uint) h2, tag, 8);
+            EndianHelper.WriteUInt32ToTag((uint) h3, tag, 12);
 
             return tag;
         }

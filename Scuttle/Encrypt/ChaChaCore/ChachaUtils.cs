@@ -9,11 +9,6 @@ namespace Scuttle.Encrypt.ChaChaCore
 {
     internal static class ChaChaUtils
     {
-        // ChaCha constants - shared across implementations
-        public static readonly uint[] ChaChaConstants = {
-            0x61707865, 0x3320646E, 0x79622D32, 0x6B206574
-        };
-
         // Core quarter round operation - identical for both implementations
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void QuarterRound(ref uint a, ref uint b, ref uint c, ref uint d)
@@ -248,32 +243,6 @@ namespace Scuttle.Encrypt.ChaChaCore
             }
 
             return result == 0;
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void WriteUInt32ToBytes(uint value, Span<byte> output)
-        {
-            output[0] = (byte) value;
-            output[1] = (byte) (value >> 8);
-            output[2] = (byte) (value >> 16);
-            output[3] = (byte) (value >> 24);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void WriteUInt32ToBytes(uint value, byte[] output, int offset)
-        {
-            output[offset] = (byte) value;
-            output[offset + 1] = (byte) (value >> 8);
-            output[offset + 2] = (byte) (value >> 16);
-            output[offset + 3] = (byte) (value >> 24);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void WriteUInt32ToTag(uint value, byte[] tag, int offset)
-        {
-            tag[offset] = (byte) value;
-            tag[offset + 1] = (byte) (value >> 8);
-            tag[offset + 2] = (byte) (value >> 16);
-            tag[offset + 3] = (byte) (value >> 24);
         }
     }
 }

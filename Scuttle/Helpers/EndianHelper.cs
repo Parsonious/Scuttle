@@ -1,4 +1,5 @@
 ﻿using System.Buffers.Binary;
+using System.Runtime.CompilerServices;
 
 namespace Scuttle.Helpers
 {
@@ -40,13 +41,30 @@ namespace Scuttle.Helpers
 
             return result;
         }
-        public static void WriteUInt32ToBytes(uint value, Span<byte> destination)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void WriteUInt32ToBytes(uint value, Span<byte> output)
         {
-            if ( !IsLittleEndian )
-            {
-                value = ReverseUInt32(value);
-            }
-            BinaryPrimitives.WriteUInt32LittleEndian(destination, value);
+            output[0] = (byte) value;
+            output[1] = (byte) (value >> 8);
+            output[2] = (byte) (value >> 16);
+            output[3] = (byte) (value >> 24);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void WriteUInt32ToBytes(uint value, byte[] output, int offset)
+        {
+            output[offset] = (byte) value;
+            output[offset + 1] = (byte) (value >> 8);
+            output[offset + 2] = (byte) (value >> 16);
+            output[offset + 3] = (byte) (value >> 24);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void WriteUInt32ToTag(uint value, byte[] tag, int offset)
+        {
+            tag[offset] = (byte) value;
+            tag[offset + 1] = (byte) (value >> 8);
+            tag[offset + 2] = (byte) (value >> 16);
+            tag[offset + 3] = (byte) (value >> 24);
         }
         private static uint ReverseUInt32(uint value)
         {

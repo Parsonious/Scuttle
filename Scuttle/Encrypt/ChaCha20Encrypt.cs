@@ -15,15 +15,10 @@ namespace Scuttle.Encrypt
 {
     internal class ChaCha20Encrypt : BaseEncryption
     {
-        private const int KeySize = 32;    // 256 bits
-        private const int NonceSize = 12;  // 96 bits
-        private const int BlockSize = 64;  // ChaCha20 block size
-        private const int TagSize = 16;    // Poly1305 tag size
-
-        // Static constants for better performance
-        private static readonly uint[] ChaChaConstants = {
-            0x61707865, 0x3320646E, 0x79622D32, 0x6B206574
-        };
+        private const int KeySize = ChaChaConstants.KeySize;    // 256 bits
+        private const int NonceSize = ChaChaConstants.ChaCha20NonceSize;  // 96 bits
+        private const int BlockSize = ChaChaConstants.BlockSize;  // ChaCha20 block size
+        private const int TagSize = ChaChaConstants.TagSize;    // Poly1305 tag size
 
         public ChaCha20Encrypt(IEncoder encoder) : base(encoder) { }
 
@@ -121,10 +116,10 @@ namespace Scuttle.Encrypt
             Span<uint> initialState = stackalloc uint[16];
 
             // Initialize constants
-            initialState[0] = ChaChaConstants[0];
-            initialState[1] = ChaChaConstants[1];
-            initialState[2] = ChaChaConstants[2];
-            initialState[3] = ChaChaConstants[3];
+            initialState[0] = ChaChaConstants.StateConstants[0];
+            initialState[1] = ChaChaConstants.StateConstants[1];
+            initialState[2] = ChaChaConstants.StateConstants[2];
+            initialState[3] = ChaChaConstants.StateConstants[3];
 
             // Set key
             var keyUints = EndianHelper.MassageToUInt32Array(key, 0, key.Length);
@@ -213,10 +208,10 @@ namespace Scuttle.Encrypt
             Span<uint> initialState = stackalloc uint[16];
 
             // Initialize constants
-            initialState[0] = ChaChaConstants[0];
-            initialState[1] = ChaChaConstants[1];
-            initialState[2] = ChaChaConstants[2];
-            initialState[3] = ChaChaConstants[3];
+            initialState[0] = ChaChaConstants.StateConstants[0];
+            initialState[1] = ChaChaConstants.StateConstants[1];
+            initialState[2] = ChaChaConstants.StateConstants[2];
+            initialState[3] = ChaChaConstants.StateConstants[3];
 
             // Set key
             var keyUints = EndianHelper.MassageToUInt32Array(key, 0, key.Length);
@@ -310,10 +305,10 @@ namespace Scuttle.Encrypt
             Span<uint> state = stackalloc uint[16];
 
             // Initialize state constants
-            state[0] = ChaChaConstants[0];
-            state[1] = ChaChaConstants[1];
-            state[2] = ChaChaConstants[2];
-            state[3] = ChaChaConstants[3];
+            state[0] = ChaChaConstants.StateConstants[0];
+            state[1] = ChaChaConstants.StateConstants[1];
+            state[2] = ChaChaConstants.StateConstants[2];
+            state[3] = ChaChaConstants.StateConstants[3];
 
             // Set key
             var keyUints = EndianHelper.MassageToUInt32Array(key, 0, key.Length);
@@ -384,10 +379,10 @@ namespace Scuttle.Encrypt
             Span<uint> state = stackalloc uint[16];
 
             // Initialize constants
-            state[0] = ChaChaConstants[0];
-            state[1] = ChaChaConstants[1];
-            state[2] = ChaChaConstants[2];
-            state[3] = ChaChaConstants[3];
+            state[0] = ChaChaConstants.StateConstants[0];
+            state[1] = ChaChaConstants.StateConstants[1];
+            state[2] = ChaChaConstants.StateConstants[2];
+            state[3] = ChaChaConstants.StateConstants[3];
 
             // Set key
             var keyUints = EndianHelper.MassageToUInt32Array(key, 0, key.Length);

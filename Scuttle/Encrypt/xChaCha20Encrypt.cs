@@ -6,21 +6,17 @@ using System.Security.Cryptography;
 using Scuttle.Interfaces;
 using Scuttle.Base;
 using Scuttle.Encrypt.ChaChaCore;
+using Scuttle.Helpers;
 
 namespace Scuttle.Encrypt
 {
     internal class XChaCha20Encrypt : BaseEncryption
     {
-        private const int KeySize = 32;     // 256 bits
-        private const int NonceSize = 24;   // 192 bits for XChaCha20
-        private const int ChaChaBlockSize = 64;  // ChaCha20 block size
-        private const int TagSize = 16;     // 128 bits for Poly1305
+        private const int KeySize = ChaChaConstants.KeySize;     // 256 bits
+        private const int NonceSize = ChaChaConstants.XChaCha20NonceSize;   // 192 bits for XChaCha20
+        private const int ChaChaBlockSize = ChaChaConstants.BlockSize;  // ChaCha20 block size
+        private const int TagSize = ChaChaConstants.TagSize;     // 128 bits for Poly1305
         private const int HChaChaRounds = 20; // Rounds for HChaCha20 function
-
-        // Static constants for ChaCha20
-        private static readonly uint[] ChaChaConstants = {
-            0x61707865, 0x3320646E, 0x79622D32, 0x6B206574
-        };
 
         public XChaCha20Encrypt(IEncoder encoder) : base(encoder) { }
 
@@ -105,10 +101,10 @@ namespace Scuttle.Encrypt
             Span<uint> state = stackalloc uint[16];
 
             // Set up the state with ChaCha constants, key, and nonce
-            state[0] = ChaChaConstants[0];
-            state[1] = ChaChaConstants[1];
-            state[2] = ChaChaConstants[2];
-            state[3] = ChaChaConstants[3];
+            state[0] = ChaChaConstants.StateConstants[0];
+            state[1] = ChaChaConstants.StateConstants[1];
+            state[2] = ChaChaConstants.StateConstants[2];
+            state[3] = ChaChaConstants.StateConstants[3];
 
             // Copy the key into state (words 4-11)
             for ( int i = 0; i < 8; i++ )
@@ -144,15 +140,15 @@ namespace Scuttle.Encrypt
             // Extract subkey (first 4 words and last 4 words of the state)
             byte[] subkey = new byte[32];
 
-            ChaChaUtils.WriteUInt32ToBytes(workingState[0], subkey, 0);
-            ChaChaUtils.WriteUInt32ToBytes(workingState[1], subkey, 4);
-            ChaChaUtils.WriteUInt32ToBytes(workingState[2], subkey, 8);
-            ChaChaUtils.WriteUInt32ToBytes(workingState[3], subkey, 12);
+            EndianHelper.WriteUInt32ToBytes(workingState[0], subkey, 0);
+            EndianHelper.WriteUInt32ToBytes(workingState[1], subkey, 4);
+            EndianHelper.WriteUInt32ToBytes(workingState[2], subkey, 8);
+            EndianHelper.WriteUInt32ToBytes(workingState[3], subkey, 12);
 
-            ChaChaUtils.WriteUInt32ToBytes(workingState[12], subkey, 16);
-            ChaChaUtils.WriteUInt32ToBytes(workingState[13], subkey, 20);
-            ChaChaUtils.WriteUInt32ToBytes(workingState[14], subkey, 24);
-            ChaChaUtils.WriteUInt32ToBytes(workingState[15], subkey, 28);
+            EndianHelper.WriteUInt32ToBytes(workingState[12], subkey, 16);
+            EndianHelper.WriteUInt32ToBytes(workingState[13], subkey, 20);
+            EndianHelper.WriteUInt32ToBytes(workingState[14], subkey, 24);
+            EndianHelper.WriteUInt32ToBytes(workingState[15], subkey, 28);
 
             return subkey;
         }
@@ -185,10 +181,10 @@ namespace Scuttle.Encrypt
             Span<uint> state = stackalloc uint[16];
 
             // Initialize constants
-            state[0] = ChaChaConstants[0];
-            state[1] = ChaChaConstants[1];
-            state[2] = ChaChaConstants[2];
-            state[3] = ChaChaConstants[3];
+            state[0] = ChaChaConstants.StateConstants[0];
+            state[1] = ChaChaConstants.StateConstants[1];
+            state[2] = ChaChaConstants.StateConstants[2];
+            state[3] = ChaChaConstants.StateConstants[3];
 
             // Set key
             for ( int i = 0; i < 8; i++ )
@@ -255,7 +251,7 @@ namespace Scuttle.Encrypt
                 for ( int i = 0; i < 16; i++ )
                 {
                     working[i] += initialState[i];
-                    ChaChaUtils.WriteUInt32ToBytes(working[i], keyStreamBlock.Slice(i * 4, 4));
+                    EndianHelper.WriteUInt32ToBytes(working[i], keyStreamBlock.Slice(i * 4, 4));
                 }
 
                 // XOR with plaintext to produce ciphertext
@@ -281,10 +277,10 @@ namespace Scuttle.Encrypt
             Span<uint> initialState = stackalloc uint[16];
 
             // Initialize constants
-            initialState[0] = ChaChaConstants[0];
-            initialState[1] = ChaChaConstants[1];
-            initialState[2] = ChaChaConstants[2];
-            initialState[3] = ChaChaConstants[3];
+            initialState[0] = ChaChaConstants.StateConstants[0];
+            initialState[1] = ChaChaConstants.StateConstants[1];
+            initialState[2] = ChaChaConstants.StateConstants[2];
+            initialState[3] = ChaChaConstants.StateConstants[3];
 
             // Set key
             for ( int i = 0; i < 8; i++ )
@@ -354,10 +350,10 @@ namespace Scuttle.Encrypt
             Span<uint> initialState = stackalloc uint[16];
 
             // Initialize constants
-            initialState[0] = ChaChaConstants[0];
-            initialState[1] = ChaChaConstants[1];
-            initialState[2] = ChaChaConstants[2];
-            initialState[3] = ChaChaConstants[3];
+            initialState[0] = ChaChaConstants.StateConstants[0];
+            initialState[1] = ChaChaConstants.StateConstants[1];
+            initialState[2] = ChaChaConstants.StateConstants[2];
+            initialState[3] = ChaChaConstants.StateConstants[3];
 
             // Set key
             for ( int i = 0; i < 8; i++ )
@@ -427,10 +423,10 @@ namespace Scuttle.Encrypt
             Span<uint> state = stackalloc uint[16];
 
             // Initialize state constants
-            state[0] = ChaChaConstants[0];
-            state[1] = ChaChaConstants[1];
-            state[2] = ChaChaConstants[2];
-            state[3] = ChaChaConstants[3];
+            state[0] = ChaChaConstants.StateConstants[0];
+            state[1] = ChaChaConstants.StateConstants[1];
+            state[2] = ChaChaConstants.StateConstants[2];
+            state[3] = ChaChaConstants.StateConstants[3];
 
             // Set key
             for ( int i = 0; i < 8; i++ )
@@ -481,7 +477,7 @@ namespace Scuttle.Encrypt
                 // Convert to bytes
                 for ( int i = 0; i < 16; i++ )
                 {
-                    ChaChaUtils.WriteUInt32ToBytes(working[i], block.Slice(i * 4, 4));
+                    EndianHelper.WriteUInt32ToBytes(working[i], block.Slice(i * 4, 4));
                 }
 
                 // Copy to output
