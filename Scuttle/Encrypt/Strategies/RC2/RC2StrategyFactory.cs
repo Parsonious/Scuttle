@@ -1,19 +1,19 @@
 ﻿using Microsoft.Extensions.Logging;
 
-namespace Scuttle.Encrypt.Strategies.AesGcm
+namespace Scuttle.Encrypt.Strategies.RC2
 {
     /// <summary>
-    /// Factory that selects the optimal AES-GCM implementation for the current hardware
+    /// Factory that selects the optimal RC2 implementation
     /// </summary>
-    internal static class AesGcmStrategyFactory
+    internal static class RC2StrategyFactory
     {
-        private static IAesGcmStrategy? _cachedStrategy;
+        private static IRC2Strategy? _cachedStrategy;
         private static readonly object _lock = new();
 
         /// <summary>
-        /// Gets the best available implementation for the current platform
+        /// Gets the best available implementation
         /// </summary>
-        public static IAesGcmStrategy GetBestStrategy(ILogger? logger = null)
+        public static IRC2Strategy GetBestStrategy(ILogger? logger = null)
         {
             if ( _cachedStrategy != null )
                 return _cachedStrategy;
@@ -23,23 +23,20 @@ namespace Scuttle.Encrypt.Strategies.AesGcm
                 if ( _cachedStrategy != null )
                     return _cachedStrategy;
 
-                var strategies = new List<IAesGcmStrategy>();
+                var strategies = new List<IRC2Strategy>();
 
-                // Always add the software fallback strategy since it works on all platforms
-                strategies.Add(new AesGcmSoftwareStrategy());
-                logger?.LogDebug("Software AES-GCM implementation is available");
+                // Add the standard implementation as a fallback
+                strategies.Add(new RC2StandardStrategy());
+                logger?.LogDebug("Standard RC2 implementation is available");
 
-                // Check for hardware acceleration
-                if ( AesGcmHardwareStrategy.IsSupported )
-                {
-                    strategies.Add(new AesGcmHardwareStrategy());
-                    logger?.LogDebug("Hardware-accelerated AES-GCM implementation is available");
-                }
+                // Add enhanced implementation if appropriate
+                strategies.Add(new RC2EnhancedStrategy());
+                logger?.LogDebug("Enhanced RC2 implementation is available");
 
                 // Select the strategy with the highest priority
                 _cachedStrategy = strategies.OrderByDescending(s => s.Priority).First();
 
-                logger?.LogInformation("Selected AES-GCM implementation: {Description}",
+                logger?.LogInformation("Selected RC2 implementation: {Description}",
                     _cachedStrategy.Description);
 
                 return _cachedStrategy;
@@ -47,18 +44,18 @@ namespace Scuttle.Encrypt.Strategies.AesGcm
         }
 
         /// <summary>
-        /// Forces the use of a specific implementation type, ignoring hardware support
+        /// Forces the use of a specific implementation type
         /// </summary>
         /// <remarks>
         /// This is primarily useful for testing or in specific scenarios where you want
         /// to bypass the automatic selection.
         /// </remarks>
-        internal static void ForceImplementation<T>(ILogger? logger = null) where T : IAesGcmStrategy, new()
+        internal static void ForceImplementation<T>(ILogger? logger = null) where T : IRC2Strategy, new()
         {
             lock ( _lock )
             {
                 _cachedStrategy = new T();
-                logger?.LogWarning("Forced AES-GCM implementation to: {Description}",
+                logger?.LogWarning("Forced RC2 implementation to: {Description}",
                     _cachedStrategy.Description);
             }
         }

@@ -2,8 +2,8 @@
 using System.Security.Cryptography;
 using Scuttle.Base;
 using Scuttle.Encrypt.BernSteinCore;
+using Scuttle.Encrypt.Strategies.xChaCha20;
 using Scuttle.Encrypt.Strategies.XChaCha20;
-using Scuttle.Factories;
 using Scuttle.Interfaces;
 
 namespace Scuttle.Encrypt

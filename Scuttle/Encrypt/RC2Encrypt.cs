@@ -1,74 +1,50 @@
 ﻿using System.Security.Cryptography;
-using System.Text;
 using Scuttle.Base;
+using Scuttle.Encrypt.Strategies.RC2;
 using Scuttle.Interfaces;
 
-internal class RC2Encrypt : BaseEncryption
+namespace Scuttle.Encrypt
 {
-    private const int KEY_SIZE = 16;    // 128 bits
-    private const int IV_SIZE = 8;      // 64 bits
-
-    public RC2Encrypt(IEncoder encoder) : base(encoder)
+    /// <summary>
+    /// RC2 encryption implementation using the strategy pattern
+    /// to select the optimal implementation.
+    /// </summary>
+    internal class RC2Encrypt : BaseEncryption
     {
-    }
+        private readonly IRC2Strategy _strategy;
 
-    public override byte[] Encrypt(byte[] data, byte[] key)
-    {
-        if ( data == null || data.Length == 0 )
-            throw new ArgumentException("Data cannot be null or empty.", nameof(data));
-
-        if ( key == null || key.Length != KEY_SIZE )
-            throw new ArgumentException($"Key must be {KEY_SIZE} bytes.", nameof(key));
-
-        byte[] iv = new byte[IV_SIZE];
-        RandomNumberGenerator.Fill(iv);
-
-        using var rc2 = RC2.Create();
-        rc2.Key = key;
-        rc2.IV = iv;
-
-        using var msEncrypt = new MemoryStream();
-        // Write IV to the beginning of the stream
-        msEncrypt.Write(iv, 0, iv.Length);
-
-        using ( var cryptoStream = new CryptoStream(msEncrypt, rc2.CreateEncryptor(), CryptoStreamMode.Write) )
-        using ( var writer = new BinaryWriter(cryptoStream) )
+        /// <summary>
+        /// Creates a new RC2 encryptor that automatically selects the optimal
+        /// implementation
+        /// </summary>
+        public RC2Encrypt(IEncoder encoder) : base(encoder)
         {
-            writer.Write(data.Length); // Write original length
-            writer.Write(data);        // Write data
+            _strategy = RC2StrategyFactory.GetBestStrategy();
         }
 
-        return msEncrypt.ToArray();
-    }
+        /// <summary>
+        /// For testing - allows injection of a specific strategy
+        /// </summary>
+        internal RC2Encrypt(IEncoder encoder, IRC2Strategy strategy) : base(encoder)
+        {
+            _strategy = strategy;
+        }
 
-    public override byte[] Decrypt(byte[] encryptedData, byte[] key)
-    {
-        if ( encryptedData == null || encryptedData.Length < IV_SIZE )
-            throw new ArgumentException("Invalid encrypted data.", nameof(encryptedData));
+        public override byte[] Encrypt(byte[] data, byte[] key)
+        {
+            return _strategy.Encrypt(data, key);
+        }
 
-        if ( key == null || key.Length != KEY_SIZE )
-            throw new ArgumentException($"Key must be {KEY_SIZE} bytes.", nameof(key));
+        public override byte[] Decrypt(byte[] encryptedData, byte[] key)
+        {
+            return _strategy.Decrypt(encryptedData, key);
+        }
 
-        // Extract IV from the beginning of the encrypted data
-        byte[] iv = new byte[IV_SIZE];
-        Buffer.BlockCopy(encryptedData, 0, iv, 0, IV_SIZE);
-
-        using var rc2 = RC2.Create();
-        rc2.Key = key;
-        rc2.IV = iv;
-
-        using var msDecrypt = new MemoryStream(encryptedData, IV_SIZE, encryptedData.Length - IV_SIZE);
-        using var cryptoStream = new CryptoStream(msDecrypt, rc2.CreateDecryptor(), CryptoStreamMode.Read);
-        using var reader = new BinaryReader(cryptoStream);
-
-        int length = reader.ReadInt32(); // Read original length
-        return reader.ReadBytes(length); // Read data
-    }
-
-    public override byte[] GenerateKey()
-    {
-        byte[] key = new byte[KEY_SIZE];
-        RandomNumberGenerator.Fill(key);
-        return key;
+        public override byte[] GenerateKey()
+        {
+            byte[] key = new byte[16]; // 128 bits
+            RandomNumberGenerator.Fill(key);
+            return key;
+        }
     }
 }

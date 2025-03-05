@@ -1,13 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
-using Scuttle.Encrypt.Strategies.Salsa20;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Versioning;
 using System;
 using System.Runtime.InteropServices;
 
-namespace Scuttle.Factories
+namespace Scuttle.Encrypt.Strategies.Salsa20
 {
     /// <summary>
     /// Factory that selects the optimal Salsa20 implementation for the current hardware

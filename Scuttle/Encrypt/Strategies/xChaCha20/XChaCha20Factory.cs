@@ -1,22 +1,21 @@
 ﻿using Microsoft.Extensions.Logging;
-using Scuttle.Encrypt.Strategies.ChaCha20;
 using Scuttle.Encrypt.Strategies.XChaCha20;
 using System.Runtime.Versioning;
 
-namespace Scuttle.Factories
+namespace Scuttle.Encrypt.Strategies.xChaCha20
 {
     /// <summary>
-    /// Factory that selects the optimal ChaCha20 implementation for the current hardware
+    /// Factory that selects the optimal XChaCha20 implementation for the current hardware
     /// </summary>
-    internal static class ChaCha20StrategyFactory
+    internal static class XChaCha20StrategyFactory
     {
-        private static IChaCha20Strategy? _cachedStrategy;
+        private static IXChaCha20Strategy? _cachedStrategy;
         private static readonly object _lock = new();
 
         /// <summary>
         /// Gets the best available implementation for the current platform
         /// </summary>
-        public static IChaCha20Strategy GetBestStrategy(ILogger? logger = null)
+        public static IXChaCha20Strategy GetBestStrategy(ILogger? logger = null)
         {
             if ( _cachedStrategy != null )
                 return _cachedStrategy;
@@ -26,35 +25,38 @@ namespace Scuttle.Factories
                 if ( _cachedStrategy != null )
                     return _cachedStrategy;
 
-                var strategies = new List<IChaCha20Strategy>();
+                var strategies = new List<IXChaCha20Strategy>();
 
                 // Always add the scalar fallback strategy since it works on all platforms
-                strategies.Add(new ChaCha20ScalarStrategy());
-                logger?.LogDebug("Scalar ChaCha20 implementation is available");
+                strategies.Add(new XChaCha20ScalarStrategy());
+                logger?.LogDebug("Scalar XChaCha20 implementation is available");
 
                 // Try platform-specific implementations with proper OS checks
                 if ( IsWindowsOrLinuxOrMacOS() )
                 {
+                    // The IsSupported check is also necessary in addition to the OS check
+                    // because the OS might be supported but the CPU might not have the instruction set
+
 #if NET7_0_OR_GREATER
                     // Check for AVX2 support (highest priority, needs both OS and CPU support)
                     if ( TryIsAvx2Supported() )
                     {
-                        strategies.Add(new ChaCha20Avx2Strategy());
-                        logger?.LogDebug("AVX2 ChaCha20 implementation is available");
+                        strategies.Add(new XChaCha20Avx2Strategy());
+                        logger?.LogDebug("AVX2 XChaCha20 implementation is available");
                     }
 
                     // Check for SSE2 support (medium priority)
                     if ( TryIsSse2Supported() )
                     {
-                        strategies.Add(new ChaCha20Sse2Strategy());
-                        logger?.LogDebug("SSE2 ChaCha20 implementation is available");
+                        strategies.Add(new XChaCha20Sse2Strategy());
+                        logger?.LogDebug("SSE2 XChaCha20 implementation is available");
                     }
 
                     // Check for ARM NEON support (medium priority)
                     if ( TryIsAdvSimdSupported() )
                     {
-                        strategies.Add(new ChaCha20AdvSimdStrategy());
-                        logger?.LogDebug("ARM NEON ChaCha20 implementation is available");
+                        strategies.Add(new XChaCha20AdvSimdStrategy());
+                        logger?.LogDebug("ARM NEON XChaCha20 implementation is available");
                     }
 #endif
                 }
@@ -62,7 +64,7 @@ namespace Scuttle.Factories
                 // Select the strategy with the highest priority
                 _cachedStrategy = strategies.OrderByDescending(s => s.Priority).First();
 
-                logger?.LogInformation("Selected ChaCha20 implementation: {Description}",
+                logger?.LogInformation("Selected XChaCha20 implementation: {Description}",
                     _cachedStrategy.Description);
 
                 return _cachedStrategy;
@@ -72,12 +74,16 @@ namespace Scuttle.Factories
         /// <summary>
         /// Forces the use of a specific implementation type, ignoring hardware support
         /// </summary>
-        internal static void ForceImplementation<T>(ILogger? logger = null) where T : IChaCha20Strategy, new()
+        /// <remarks>
+        /// This is primarily useful for testing or in specific scenarios where you want
+        /// to bypass the automatic selection.
+        /// </remarks>
+        internal static void ForceImplementation<T>(ILogger? logger = null) where T : IXChaCha20Strategy, new()
         {
             lock ( _lock )
             {
                 _cachedStrategy = new T();
-                logger?.LogWarning("Forced ChaCha20 implementation to: {Description}",
+                logger?.LogWarning("Forced XChaCha20 implementation to: {Description}",
                     _cachedStrategy.Description);
             }
         }
@@ -117,6 +123,7 @@ namespace Scuttle.Factories
             }
             catch
             {
+                // If we get an exception, the platform doesn't support AVX2
                 return false;
             }
         }
@@ -135,6 +142,7 @@ namespace Scuttle.Factories
             }
             catch
             {
+                // If we get an exception, the platform doesn't support SSE2
                 return false;
             }
         }
@@ -153,6 +161,7 @@ namespace Scuttle.Factories
             }
             catch
             {
+                // If we get an exception, the platform doesn't support ARM Advanced SIMD
                 return false;
             }
         }

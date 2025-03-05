@@ -1,5 +1,6 @@
 ﻿using System.Security.Cryptography;
 using Scuttle.Base;
+using Scuttle.Encrypt.Strategies.AES;
 using Scuttle.Encrypt.Strategies.AesGcm;
 using Scuttle.Interfaces;
 
