@@ -3,7 +3,7 @@
     public class ConsoleSpinner
     {
         private int _counter = 0;
-        private readonly string[] _sequence = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" };
+        private readonly string[] _sequence = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
         public void Turn(string status = "Processing")
         {

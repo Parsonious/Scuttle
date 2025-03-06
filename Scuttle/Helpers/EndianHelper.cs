@@ -8,113 +8,140 @@ namespace Scuttle.Helpers
         private static readonly bool IsLittleEndian = BitConverter.IsLittleEndian;
 
         //INT32
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void MassageUInt32Array(Span<uint> data)
         {
             if ( IsLittleEndian ) return; // No conversion needed for little-endian systems
 
             for ( int i = 0; i < data.Length; i++ )
             {
-                data[i] = ReverseUInt32(data[i]);
+                data[i] = SwapUInt32(data[i]);
             }
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint[] MassageToUInt32Array(ReadOnlySpan<byte> data, int offset, int count)
         {
             int uintCount = (count + 3) / 4;
             uint[] result = new uint[uintCount];
 
-            for ( int i = 0; i < uintCount; i++ )
+            // Optimize for the common case where data is properly aligned
+            if ( offset % 4 == 0 && count % 4 == 0 && data.Length >= offset + count )
             {
-                int byteOffset = offset + (i * 4);
-                int remainingBytes = Math.Min(4, count - (i * 4));
-
-                if ( remainingBytes < 4 )
+                for ( int i = 0; i < uintCount; i++ )
                 {
-                    Span<byte> temp = stackalloc byte[4];
-                    data.Slice(byteOffset, remainingBytes).CopyTo(temp);
-                    result[i] = BinaryPrimitives.ReadUInt32LittleEndian(temp);
-                }
-                else
-                {
+                    int byteOffset = offset + (i * 4);
                     result[i] = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(byteOffset));
+                }
+            }
+            else
+            {
+                // Handle unaligned or partial data
+                for ( int i = 0; i < uintCount; i++ )
+                {
+                    int byteOffset = offset + (i * 4);
+                    int remainingBytes = Math.Min(4, count - (i * 4));
+
+                    if ( remainingBytes < 4 )
+                    {
+                        Span<byte> temp = stackalloc byte[4];
+                        data.Slice(byteOffset, remainingBytes).CopyTo(temp);
+                        result[i] = BinaryPrimitives.ReadUInt32LittleEndian(temp);
+                    }
+                    else
+                    {
+                        result[i] = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(byteOffset));
+                    }
                 }
             }
 
             return result;
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void WriteUInt32ToBytes(uint value, Span<byte> output)
         {
-            output[0] = (byte) value;
-            output[1] = (byte) (value >> 8);
-            output[2] = (byte) (value >> 16);
-            output[3] = (byte) (value >> 24);
+            BinaryPrimitives.WriteUInt32LittleEndian(output, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void WriteUInt32ToBytes(uint value, byte[] output, int offset)
         {
-            output[offset] = (byte) value;
-            output[offset + 1] = (byte) (value >> 8);
-            output[offset + 2] = (byte) (value >> 16);
-            output[offset + 3] = (byte) (value >> 24);
+            BinaryPrimitives.WriteUInt32LittleEndian(output.AsSpan(offset, 4), value);
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void WriteUInt32ToTag(uint value, byte[] tag, int offset)
         {
-            tag[offset] = (byte) value;
-            tag[offset + 1] = (byte) (value >> 8);
-            tag[offset + 2] = (byte) (value >> 16);
-            tag[offset + 3] = (byte) (value >> 24);
+            // Same implementation as WriteUInt32ToBytes for consistency
+            WriteUInt32ToBytes(value, tag, offset);
         }
-        private static uint ReverseUInt32(uint value)
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static uint SwapUInt32(uint value)
         {
             return BinaryPrimitives.ReverseEndianness(value);
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong[] MassageToUInt64Array(ReadOnlySpan<byte> data, int offset, int count)
         {
             int ulongCount = (count + 7) / 8;
             ulong[] result = new ulong[ulongCount];
 
-            for ( int i = 0; i < ulongCount; i++ )
+            // Optimize for the common case where data is properly aligned
+            if ( offset % 8 == 0 && count % 8 == 0 && data.Length >= offset + count )
             {
-                int byteOffset = offset + (i * 8);
-                int remainingBytes = Math.Min(8, count - (i * 8));
-
-                if ( remainingBytes < 8 )
+                for ( int i = 0; i < ulongCount; i++ )
                 {
-                    Span<byte> temp = stackalloc byte[8];
-                    data.Slice(byteOffset, remainingBytes).CopyTo(temp);
-                    result[i] = BinaryPrimitives.ReadUInt64LittleEndian(temp);
-                }
-                else
-                {
+                    int byteOffset = offset + (i * 8);
                     result[i] = BinaryPrimitives.ReadUInt64LittleEndian(data.Slice(byteOffset));
+                }
+            }
+            else
+            {
+                // Handle unaligned or partial data
+                for ( int i = 0; i < ulongCount; i++ )
+                {
+                    int byteOffset = offset + (i * 8);
+                    int remainingBytes = Math.Min(8, count - (i * 8));
+
+                    if ( remainingBytes < 8 )
+                    {
+                        Span<byte> temp = stackalloc byte[8];
+                        data.Slice(byteOffset, remainingBytes).CopyTo(temp);
+                        result[i] = BinaryPrimitives.ReadUInt64LittleEndian(temp);
+                    }
+                    else
+                    {
+                        result[i] = BinaryPrimitives.ReadUInt64LittleEndian(data.Slice(byteOffset));
+                    }
                 }
             }
 
             return result;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void WriteUInt64ToBytes(ulong value, Span<byte> destination)
         {
-            if ( !IsLittleEndian )
-            {
-                value = ReverseUInt64(value);
-            }
             BinaryPrimitives.WriteUInt64LittleEndian(destination, value);
         }
 
-        private static ulong ReverseUInt64(ulong value)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong SwapUInt64(ulong value)
         {
             return BinaryPrimitives.ReverseEndianness(value);
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void MassageUInt64Array(Span<ulong> data)
         {
             if ( IsLittleEndian ) return; // No conversion needed for little-endian systems
 
             for ( int i = 0; i < data.Length; i++ )
             {
-                data[i] = ReverseUInt64(data[i]);
+                data[i] = SwapUInt64(data[i]);
             }
         }
     }

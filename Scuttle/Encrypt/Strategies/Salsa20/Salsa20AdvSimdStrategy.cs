@@ -40,11 +40,13 @@ namespace Scuttle.Encrypt.Strategies.Salsa20
                     if ( counter == 0 ) blockState[9]++; // Handle overflow
 
                     // Load state into ARM NEON registers
-                    Vector128<uint>[] state = new Vector128<uint>[4];
-                    state[0] = Vector128.Create(blockState[0], blockState[1], blockState[2], blockState[3]);
-                    state[1] = Vector128.Create(blockState[4], blockState[5], blockState[6], blockState[7]);
-                    state[2] = Vector128.Create(blockState[8], blockState[9], blockState[10], blockState[11]);
-                    state[3] = Vector128.Create(blockState[12], blockState[13], blockState[14], blockState[15]);
+                    Vector128<uint>[] state =
+                    [
+                        Vector128.Create(blockState[0], blockState[1], blockState[2], blockState[3]),
+                        Vector128.Create(blockState[4], blockState[5], blockState[6], blockState[7]),
+                        Vector128.Create(blockState[8], blockState[9], blockState[10], blockState[11]),
+                        Vector128.Create(blockState[12], blockState[13], blockState[14], blockState[15]),
+                    ];
 
                     // Create working copy
                     Vector128<uint>[] working = new Vector128<uint>[4];

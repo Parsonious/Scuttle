@@ -7,7 +7,7 @@ namespace Scuttle.Base
     internal class Base85
     {
         private const string Base85Chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~";
-        private static readonly uint[] PowersOf85 = { 52200625, 614125, 7225, 85, 1 };
+        private static readonly uint[] PowersOf85 = [52200625, 614125, 7225, 85, 1];
         private static readonly Dictionary<char, uint> Base85CharMap;
 
         static Base85()

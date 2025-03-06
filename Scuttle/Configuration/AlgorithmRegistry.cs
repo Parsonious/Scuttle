@@ -26,7 +26,7 @@ namespace Scuttle.Configuration
                     Description = "Advanced Encryption Standard with Galois/Counter Mode",
                     KeySize = 32,
                     IsLegacy = false,
-                    Capabilities = new[] { "AEAD" }
+                    Capabilities = ["AEAD"]
                 },
                 ["XChaCha20"] = new AlgorithmMetadata
                 {
@@ -35,7 +35,7 @@ namespace Scuttle.Configuration
                     Description = "Extended ChaCha20 stream cipher with Poly1305",
                     KeySize = 32,
                     IsLegacy = false,
-                    Capabilities = new[] { "AEAD", "STREAM" }
+                    Capabilities = ["AEAD", "STREAM"]
                 },
                 ["ChaCha20"] = new AlgorithmMetadata
                 {
@@ -44,7 +44,7 @@ namespace Scuttle.Configuration
                     Description = "ChaCha20 stream cipher with Poly1305",
                     KeySize = 32,
                     IsLegacy = false,
-                    Capabilities = new[] { "AEAD", "STREAM" }
+                    Capabilities = ["AEAD", "STREAM"]
                 },
                 ["ThreeFish"] = new AlgorithmMetadata
                 {
@@ -53,7 +53,7 @@ namespace Scuttle.Configuration
                     Description = "ThreeFish block cipher (512-bit)",
                     KeySize = 64,
                     IsLegacy = false,
-                    Capabilities = new[] { "BLOCK" }
+                    Capabilities = ["BLOCK"]
                 },
                 ["Salsa20"] = new AlgorithmMetadata
                 {
@@ -62,7 +62,7 @@ namespace Scuttle.Configuration
                     Description = "Salsa20 stream cipher",
                     KeySize = 32,
                     IsLegacy = false,
-                    Capabilities = new[] { "STREAM" }
+                    Capabilities = ["STREAM"]
                 }
             };
         }

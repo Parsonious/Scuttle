@@ -88,11 +88,13 @@ namespace Scuttle.Encrypt.Strategies.ChaCha20
                     initialState[12] = counter;
 
                     // Use SSE2 for the final partial block
-                    Vector128<uint>[] state = new Vector128<uint>[4];
-                    state[0] = Vector128.Create(initialState[0], initialState[1], initialState[2], initialState[3]);
-                    state[1] = Vector128.Create(initialState[4], initialState[5], initialState[6], initialState[7]);
-                    state[2] = Vector128.Create(initialState[8], initialState[9], initialState[10], initialState[11]);
-                    state[3] = Vector128.Create(initialState[12], initialState[13], initialState[14], initialState[15]);
+                    Vector128<uint>[] state =
+                    [
+                        Vector128.Create(initialState[0], initialState[1], initialState[2], initialState[3]),
+                        Vector128.Create(initialState[4], initialState[5], initialState[6], initialState[7]),
+                        Vector128.Create(initialState[8], initialState[9], initialState[10], initialState[11]),
+                        Vector128.Create(initialState[12], initialState[13], initialState[14], initialState[15]),
+                    ];
 
                     // Create working copy
                     Vector128<uint>[] working = new Vector128<uint>[4];

@@ -22,11 +22,11 @@ namespace Scuttle.Services
 
         public string SelectOperationMode()
         {
-            string[] options = new string[]
-            {
+            string[] options =
+            [
                 "Encrypt (Create new token)",
                 "Decrypt (Read existing token)"
-            };
+            ];
 
             int selected = GetMenuSelection(options, "Select operation mode:");
 
@@ -280,7 +280,7 @@ namespace Scuttle.Services
         }
         public bool YesNoPrompt(string promptText = "Would you like to perform another operation?")
         {
-            string[] options = new string[] { "Yes", "No" };
+            string[] options = ["Yes", "No"];
             int selected = GetMenuSelection(options, promptText);
             return selected == 0; // Yes is index 0
         }

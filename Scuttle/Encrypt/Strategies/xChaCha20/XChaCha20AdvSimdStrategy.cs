@@ -58,11 +58,13 @@ namespace Scuttle.Encrypt.Strategies.XChaCha20
                     initialState[12] = counter++;
 
                     // Load state into ARM NEON registers
-                    Vector128<uint>[] state = new Vector128<uint>[4];
-                    state[0] = Vector128.Create(initialState[0], initialState[1], initialState[2], initialState[3]);
-                    state[1] = Vector128.Create(initialState[4], initialState[5], initialState[6], initialState[7]);
-                    state[2] = Vector128.Create(initialState[8], initialState[9], initialState[10], initialState[11]);
-                    state[3] = Vector128.Create(initialState[12], initialState[13], initialState[14], initialState[15]);
+                    Vector128<uint>[] state =
+                    [
+                        Vector128.Create(initialState[0], initialState[1], initialState[2], initialState[3]),
+                        Vector128.Create(initialState[4], initialState[5], initialState[6], initialState[7]),
+                        Vector128.Create(initialState[8], initialState[9], initialState[10], initialState[11]),
+                        Vector128.Create(initialState[12], initialState[13], initialState[14], initialState[15]),
+                    ];
 
                     // Create working copy
                     Vector128<uint>[] working = new Vector128<uint>[4];
@@ -116,11 +118,13 @@ namespace Scuttle.Encrypt.Strategies.XChaCha20
                 initialState[12] = counter++;
 
                 // Load state into ARM NEON registers
-                Vector128<uint>[] state = new Vector128<uint>[4];
-                state[0] = Vector128.Create(initialState[0], initialState[1], initialState[2], initialState[3]);
-                state[1] = Vector128.Create(initialState[4], initialState[5], initialState[6], initialState[7]);
-                state[2] = Vector128.Create(initialState[8], initialState[9], initialState[10], initialState[11]);
-                state[3] = Vector128.Create(initialState[12], initialState[13], initialState[14], initialState[15]);
+                Vector128<uint>[] state =
+                [
+                    Vector128.Create(initialState[0], initialState[1], initialState[2], initialState[3]),
+                    Vector128.Create(initialState[4], initialState[5], initialState[6], initialState[7]),
+                    Vector128.Create(initialState[8], initialState[9], initialState[10], initialState[11]),
+                    Vector128.Create(initialState[12], initialState[13], initialState[14], initialState[15]),
+                ];
 
                 // Create working copy
                 Vector128<uint>[] working = new Vector128<uint>[4];
@@ -186,11 +190,13 @@ namespace Scuttle.Encrypt.Strategies.XChaCha20
             }
 
             // Create working copy for SIMD operations
-            Vector128<uint>[] v = new Vector128<uint>[4];
-            v[0] = Vector128.Create(state[0], state[1], state[2], state[3]);
-            v[1] = Vector128.Create(state[4], state[5], state[6], state[7]);
-            v[2] = Vector128.Create(state[8], state[9], state[10], state[11]);
-            v[3] = Vector128.Create(state[12], state[13], state[14], state[15]);
+            Vector128<uint>[] v =
+            [
+                Vector128.Create(state[0], state[1], state[2], state[3]),
+                Vector128.Create(state[4], state[5], state[6], state[7]),
+                Vector128.Create(state[8], state[9], state[10], state[11]),
+                Vector128.Create(state[12], state[13], state[14], state[15]),
+            ];
 
             // Apply the ChaCha rounds
             for ( int i = 0; i < 10; i++ )
@@ -211,11 +217,13 @@ namespace Scuttle.Encrypt.Strategies.XChaCha20
                 diag[12] = temp[12]; diag[13] = temp[1]; diag[14] = temp[6]; diag[15] = temp[11];
 
                 // Load diagonals back into vectors
-                Vector128<uint>[] d = new Vector128<uint>[4];
-                d[0] = Vector128.Create(diag[0], diag[1], diag[2], diag[3]);
-                d[1] = Vector128.Create(diag[4], diag[5], diag[6], diag[7]);
-                d[2] = Vector128.Create(diag[8], diag[9], diag[10], diag[11]);
-                d[3] = Vector128.Create(diag[12], diag[13], diag[14], diag[15]);
+                Vector128<uint>[] d =
+                [
+                    Vector128.Create(diag[0], diag[1], diag[2], diag[3]),
+                    Vector128.Create(diag[4], diag[5], diag[6], diag[7]),
+                    Vector128.Create(diag[8], diag[9], diag[10], diag[11]),
+                    Vector128.Create(diag[12], diag[13], diag[14], diag[15]),
+                ];
 
                 // Apply quarter round
                 ChaChaUtils.ChaChaRoundAdvSimd(ref d[0], ref d[1], ref d[2], ref d[3]);

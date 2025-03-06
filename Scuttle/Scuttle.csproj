@@ -8,6 +8,7 @@
     <Nullable>enable</Nullable>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
 	  <AssemblyName>Scuttle</AssemblyName>
+	  <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,7 +28,6 @@
 
   <ItemGroup>
     <Folder Include="Encrypt\Strategies\TripleDES\" />
-    <Folder Include="Encrypt\Strategies\ThreeFish\" />
   </ItemGroup>
 
 </Project>
