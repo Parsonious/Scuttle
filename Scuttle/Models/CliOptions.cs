@@ -18,6 +18,10 @@
         public bool ListAlgorithms { get; set; }
         public bool ListEncoders { get; set; }
         public bool ShowVersion { get; set; }
+        public string? InputFile { get; set; }
+        public bool SaveKeyToFile { get; set; }
+        public string? KeyFile { get; set; }
+        public string? InputType { get; set; }
 
         public bool Validate(out string error)
         {
@@ -46,12 +50,21 @@
 
             switch ( Mode.ToLower() )
             {
-                case "encrypt" when !string.IsNullOrEmpty(Algorithm) && (string.IsNullOrEmpty(Title) || string.IsNullOrEmpty(Instructions)):
-                    error = "Encryption requires both title and instructions when using command-line arguments";
+                case "encrypt" when !string.IsNullOrEmpty(Algorithm) &&
+                    string.IsNullOrEmpty(InputFile) &&
+                    (string.IsNullOrEmpty(Title) || string.IsNullOrEmpty(Instructions)):
+                    error = "Encryption requires either an input file or both title and instructions";
                     return false;
 
-                case "decrypt" when !string.IsNullOrEmpty(Algorithm) && (string.IsNullOrEmpty(Token) || string.IsNullOrEmpty(Key)):
-                    error = "Decryption requires both token and key when using command-line arguments";
+                case "decrypt" when !string.IsNullOrEmpty(Algorithm) &&
+                    string.IsNullOrEmpty(InputFile) &&
+                    (string.IsNullOrEmpty(Token) || string.IsNullOrEmpty(Key)):
+                    error = "Decryption requires either an input file or both token and key";
+                    return false;
+
+                case "decrypt" when !string.IsNullOrEmpty(InputFile) &&
+                    string.IsNullOrEmpty(Key) && string.IsNullOrEmpty(KeyFile):
+                    error = "Decryption of a file requires either a key or a key file";
                     return false;
 
                 case "encrypt":
@@ -73,8 +86,11 @@
                    !string.IsNullOrEmpty(Instructions) ||
                    !string.IsNullOrEmpty(Token) ||
                    !string.IsNullOrEmpty(Key) ||
+                   !string.IsNullOrEmpty(InputFile) ||  
+                   !string.IsNullOrEmpty(KeyFile) ||    
                    !string.IsNullOrEmpty(OutputFile) ||
                    !string.IsNullOrEmpty(BatchFile) ||
+                   SaveKeyToFile ||                     
                    ShowVersion ||
                    ListAlgorithms ||
                    ListEncoders ||

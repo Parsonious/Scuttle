@@ -111,5 +111,6 @@ namespace Scuttle.Services
                 .AppendLine("\nNote: Keep this file secure. The key is required to decrypt the token.")
                 .ToString();
         }
+
     }
 }

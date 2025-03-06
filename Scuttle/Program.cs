@@ -6,6 +6,7 @@ using System.Text.Json;
 using Scuttle.Models;
 using Scuttle.Services;
 using Scuttle.Models.Art;
+using Scuttle.Interfaces;
 
 class Program
 {
@@ -17,18 +18,22 @@ class Program
     private readonly ArgumentParser _parser;
     private readonly OutputFormatter _formatter;
     private readonly Util _utilities;
+    private readonly FileEncryptionService _fileEncryptionService;
+
 
     public Program(
-        IConfiguration configuration,
-        ILogger<Program> logger,
-        ArgumentParser parser,
-        OutputFormatter formatter,
-        Util utilities)
+    IConfiguration configuration,
+    ILogger<Program> logger,
+    ArgumentParser parser,
+    OutputFormatter formatter,
+    Util utilities,
+    FileEncryptionService fileEncryptionService)  
     {
         _configService = new ConfigurationService(configuration);
         _encryptionService = new EncryptionService(_configService);
         _displayService = new DisplayService(_configService);
         _fileService = new FileService(_displayService);
+        _fileEncryptionService = fileEncryptionService;
         _logger = logger;
         _parser = parser;
         _formatter = formatter;
@@ -56,13 +61,15 @@ class Program
 
         var logger = loggerFactory.CreateLogger<Program>();
         var parserLogger = loggerFactory.CreateLogger<ArgumentParser>();
+        var fileEncryptionLogger = loggerFactory.CreateLogger<FileEncryptionService>(); 
         var parser = new ArgumentParser(config, parserLogger);
         var formatter = new OutputFormatter();
         var utilities = new Util();
+        var fileEncryptionService = new FileEncryptionService(fileEncryptionLogger);
 
         try
         {
-            var program = new Program(config, logger, parser, formatter, utilities);
+            var program = new Program(config, logger, parser, formatter, utilities, fileEncryptionService);
             await program.RunAsync(args);
         }
         catch ( Exception ex )
@@ -139,15 +146,23 @@ class Program
             try
             {
                 var mode = DisplayService.SelectOperationMode();
+                var input = DisplayService.SelectInputType();
 
                 var options = new CliOptions
                 {
+                    InputType = input,
                     Mode = mode,
                     IsInteractiveMode = true
                 };
-
-                await ProcessSingleOperation(options);
-            }
+                if ( options.InputType == "file" )
+                {
+                    await ProcessSingleOperation(options);
+                }
+                else
+                {
+                    await ProcessSingleOperation(options);
+                }
+                }
             catch ( Exception ex )
             {
                 _logger.LogError(ex, "Operation failed");

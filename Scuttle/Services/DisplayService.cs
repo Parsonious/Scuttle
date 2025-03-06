@@ -33,6 +33,17 @@ namespace Scuttle.Services
             // Convert selection to mode string
             return selected == 0 ? "encrypt" : "decrypt";
         }
+        public static string SelectInputType()
+        {
+            string[] options =
+            [
+                "Text input",
+                "File input"
+            ];
+            int selected = GetMenuSelection(options, "Select input type:");
+            // Convert selection to mode string
+            return selected == 0 ? "text" : "file";
+        }
 
         public void DisplayEncryptionMethods()
         {

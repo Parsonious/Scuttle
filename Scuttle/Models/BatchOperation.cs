@@ -17,5 +17,8 @@ namespace Scuttle.Models
         public string? Key { get; set; }
         public string? OutputFile { get; set; }
         public bool Silent { get; set; }
+        public string InputFile { get; set; } = string.Empty;
+        public bool SaveKeyToFile { get; set; }
+        public string? KeyFile { get; set; } = string.Empty;
     }
 }
