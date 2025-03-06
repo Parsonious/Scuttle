@@ -86,7 +86,7 @@ namespace Scuttle.Services
             return options;
         }
 
-        private void ApplyEnvironmentVariables(CliOptions options)
+        private static void ApplyEnvironmentVariables(CliOptions options)
         {
             options.Algorithm ??= Environment.GetEnvironmentVariable("TOKEN_ALGORITHM");
             options.Encoder ??= Environment.GetEnvironmentVariable("TOKEN_ENCODER");

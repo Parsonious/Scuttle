@@ -25,10 +25,11 @@ namespace Scuttle.Encrypt.Strategies.xChaCha20
                 if ( _cachedStrategy != null )
                     return _cachedStrategy;
 
-                var strategies = new List<IXChaCha20Strategy>();
-
-                // Always add the scalar fallback strategy since it works on all platforms
-                strategies.Add(new XChaCha20ScalarStrategy());
+                var strategies = new List<IXChaCha20Strategy>
+                {
+                    // Always add the scalar fallback strategy since it works on all platforms
+                    new XChaCha20ScalarStrategy()
+                };
                 logger?.LogDebug("Scalar XChaCha20 implementation is available");
 
                 // Try platform-specific implementations with proper OS checks

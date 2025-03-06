@@ -5,13 +5,13 @@ namespace Scuttle.Helpers
 {
     internal static class EndianHelper
     {
-        private static readonly bool IsLittleEndian = BitConverter.IsLittleEndian;
+        private static readonly bool _isLittleEndian = BitConverter.IsLittleEndian;
 
         //INT32
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void MassageUInt32Array(Span<uint> data)
         {
-            if ( IsLittleEndian ) return; // No conversion needed for little-endian systems
+            if ( _isLittleEndian ) return; // No conversion needed for little-endian systems
 
             for ( int i = 0; i < data.Length; i++ )
             {
@@ -31,11 +31,13 @@ namespace Scuttle.Helpers
                 for ( int i = 0; i < uintCount; i++ )
                 {
                     int byteOffset = offset + (i * 4);
-                    result[i] = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(byteOffset));
+                    result[i] = BinaryPrimitives.ReadUInt32LittleEndian(data[byteOffset..]);
                 }
             }
             else
             {
+                Span<byte> temp = stackalloc byte[4];
+
                 // Handle unaligned or partial data
                 for ( int i = 0; i < uintCount; i++ )
                 {
@@ -44,13 +46,12 @@ namespace Scuttle.Helpers
 
                     if ( remainingBytes < 4 )
                     {
-                        Span<byte> temp = stackalloc byte[4];
                         data.Slice(byteOffset, remainingBytes).CopyTo(temp);
                         result[i] = BinaryPrimitives.ReadUInt32LittleEndian(temp);
                     }
                     else
                     {
-                        result[i] = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(byteOffset));
+                        result[i] = BinaryPrimitives.ReadUInt32LittleEndian(data[byteOffset..]);
                     }
                 }
             }
@@ -95,11 +96,12 @@ namespace Scuttle.Helpers
                 for ( int i = 0; i < ulongCount; i++ )
                 {
                     int byteOffset = offset + (i * 8);
-                    result[i] = BinaryPrimitives.ReadUInt64LittleEndian(data.Slice(byteOffset));
+                    result[i] = BinaryPrimitives.ReadUInt64LittleEndian(data[byteOffset..]);
                 }
             }
             else
             {
+                Span<byte> temp = stackalloc byte[8];
                 // Handle unaligned or partial data
                 for ( int i = 0; i < ulongCount; i++ )
                 {
@@ -108,13 +110,12 @@ namespace Scuttle.Helpers
 
                     if ( remainingBytes < 8 )
                     {
-                        Span<byte> temp = stackalloc byte[8];
                         data.Slice(byteOffset, remainingBytes).CopyTo(temp);
                         result[i] = BinaryPrimitives.ReadUInt64LittleEndian(temp);
                     }
                     else
                     {
-                        result[i] = BinaryPrimitives.ReadUInt64LittleEndian(data.Slice(byteOffset));
+                        result[i] = BinaryPrimitives.ReadUInt64LittleEndian(data[byteOffset..]);
                     }
                 }
             }
@@ -137,7 +138,7 @@ namespace Scuttle.Helpers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void MassageUInt64Array(Span<ulong> data)
         {
-            if ( IsLittleEndian ) return; // No conversion needed for little-endian systems
+            if ( _isLittleEndian ) return; // No conversion needed for little-endian systems
 
             for ( int i = 0; i < data.Length; i++ )
             {

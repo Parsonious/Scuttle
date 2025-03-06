@@ -138,7 +138,7 @@ class Program
         {
             try
             {
-                var mode = _displayService.SelectOperationMode();
+                var mode = DisplayService.SelectOperationMode();
 
                 var options = new CliOptions
                 {
@@ -154,7 +154,7 @@ class Program
                 Console.WriteLine($"\nAn error occurred: {ex.Message}");
             }
 
-            continueProgram = _displayService.YesNoPrompt();
+            continueProgram = DisplayService.YesNoPrompt();
             if ( continueProgram )
             {
                 Console.Clear();
@@ -231,7 +231,7 @@ class Program
         }
     }
 
-    private CliOptions ConvertBatchOperationToCliOptions(BatchOperation operation)
+    private static CliOptions ConvertBatchOperationToCliOptions(BatchOperation operation)
     {
         return new CliOptions
         {
@@ -262,7 +262,7 @@ class Program
             {
                 string combinedData = $"{options.Title};{options.Instructions}";
 
-                var result = await _utilities.ExecuteWithDelayedSpinner(async () =>
+                var result = await Util.ExecuteWithDelayedSpinner(async () =>
                 {
                     var (encryptedData, key) = _encryptionService.Encrypt(algorithm.Name, combinedData);
                     string encodedToken = _encryptionService.EncodeData(encryptedData, options.Encoder);
@@ -273,7 +273,7 @@ class Program
 
                 if ( !options.Silent )
                 {
-                    _displayService.DisplayResults(
+                    DisplayService.DisplayResults(
                         encodedToken,
                         key,
                         algorithm,
@@ -305,13 +305,13 @@ class Program
             var selectedAlgorithm = _displayService.SelectEncryptionAlgorithm();
             var selectedEncoding = _displayService.SelectEncodingMethod();
 
-            var (title, instructions) = _displayService.GetUserInput();
+            var (title, instructions) = DisplayService.GetUserInput();
 
             try
             {
                 string combinedData = $"{title};{instructions}";
 
-                var result = await _utilities.ExecuteWithDelayedSpinner(async () =>
+                var result = await Util.ExecuteWithDelayedSpinner(async () =>
                 {
                     var (encryptedData, key) = _encryptionService.Encrypt(selectedAlgorithm.Name, combinedData);
                     string encodedToken = _encryptionService.EncodeData(encryptedData, selectedEncoding.Name);
@@ -320,7 +320,7 @@ class Program
 
                 var (encryptedData, key, encodedToken) = result;
 
-                _displayService.DisplayResults(
+                DisplayService.DisplayResults(
                     encodedToken,
                     key,
                     selectedAlgorithm,
@@ -358,7 +358,7 @@ class Program
                 string token = options.Token;
                 string algorithm = options.Algorithm;
 
-                var decryptedText = await _utilities.ExecuteWithDelayedSpinner(async () =>
+                var decryptedText = await Util.ExecuteWithDelayedSpinner(async () =>
                 {
                     byte[] encryptedData = _encryptionService.DecodeData(token, options.Encoder);
                     return _encryptionService.Decrypt(algorithm, encryptedData, key);
@@ -366,7 +366,7 @@ class Program
 
                 if ( !options.Silent )
                 {
-                    _displayService.DisplayDecryptedData(Encoding.UTF8.GetBytes(decryptedText));
+                    DisplayService.DisplayDecryptedData(Encoding.UTF8.GetBytes(decryptedText));
                 }
 
                 if ( options.OutputFile != null )
@@ -395,13 +395,13 @@ class Program
                 string keyBase64 = Console.ReadLine() ?? throw new ArgumentNullException("Key cannot be null");
                 byte[] key = Convert.FromBase64String(keyBase64);
 
-                var decryptedText = await _utilities.ExecuteWithDelayedSpinner(async () =>
+                var decryptedText = await Util.ExecuteWithDelayedSpinner(async () =>
                 {
                     byte[] encryptedData = _encryptionService.DecodeData(encodedToken, selectedEncoding.Name);
                     return _encryptionService.Decrypt(selectedAlgorithm.Name, encryptedData, key);
                 }, "Decrypting data");
 
-                _displayService.DisplayDecryptedData(Encoding.UTF8.GetBytes(decryptedText));
+                DisplayService.DisplayDecryptedData(Encoding.UTF8.GetBytes(decryptedText));
             }
             catch ( Exception ex )
             {
@@ -411,7 +411,7 @@ class Program
         }
     }
 
-    private void ShowVersion()
+    private static void ShowVersion()
     {
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         Scuttle.Models.Art.Graphic.DisplayGraphicAndVersion(version.ToString());

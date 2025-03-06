@@ -45,7 +45,7 @@ namespace Scuttle.Encrypt.Strategies.AesGcm
         /// <summary>
         /// Gets or creates an AesGcm instance from the cache for the specified key
         /// </summary>
-        private System.Security.Cryptography.AesGcm GetAesGcm(byte[] key)
+        private static System.Security.Cryptography.AesGcm GetAesGcm(byte[] key)
         {
             // Clean expired entries when getting a new instance
             if ( !KeyCache.TryGetValue(key, out var wrapper) || wrapper.IsExpired )
@@ -275,7 +275,7 @@ namespace Scuttle.Encrypt.Strategies.AesGcm
         /// <summary>
         /// Helper method to combine chunk tags for verification
         /// </summary>
-        private byte[] CombineChunkTags(byte[][] chunkTags)
+        private static byte[] CombineChunkTags(byte[][] chunkTags)
         {
             byte[] combined = new byte[chunkTags.Length * TagSize];
             for ( int i = 0; i < chunkTags.Length; i++ )

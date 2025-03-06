@@ -48,7 +48,7 @@ namespace Scuttle.Encrypt.Strategies.XChaCha20
                 }
 
                 // Set nonce
-                initialState[13] = BitConverter.ToUInt32(nonce.Slice(0, 4));
+                initialState[13] = BitConverter.ToUInt32(nonce[..4]);
                 initialState[14] = BitConverter.ToUInt32(nonce.Slice(4, 4));
                 initialState[15] = 0; // Last word is zero for XChaCha20
 
@@ -170,6 +170,8 @@ namespace Scuttle.Encrypt.Strategies.XChaCha20
         {
             // Initialize state for HChaCha20
             Span<uint> state = stackalloc uint[16];
+            Span<uint> diag = stackalloc uint[16];
+            Span<uint> temp = stackalloc uint[16];
 
             // Set up the state with ChaCha constants, key, and nonce
             state[0] = ChaChaConstants.StateConstants[0];
@@ -206,11 +208,11 @@ namespace Scuttle.Encrypt.Strategies.XChaCha20
 
                 // Diagonal rounds - We need to rearrange the vectors
                 // This is a simplified approach - in practice, we might use specific shuffles
-                Span<uint> temp = stackalloc uint[16];
+               
                 StoreVectorsToSpan(v, temp);
 
                 // Rearrange for diagonal round
-                Span<uint> diag = stackalloc uint[16];
+                
                 diag[0] = temp[0]; diag[1] = temp[5]; diag[2] = temp[10]; diag[3] = temp[15];
                 diag[4] = temp[4]; diag[5] = temp[9]; diag[6] = temp[14]; diag[7] = temp[3];
                 diag[8] = temp[8]; diag[9] = temp[13]; diag[10] = temp[2]; diag[11] = temp[7];

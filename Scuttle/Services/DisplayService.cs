@@ -20,7 +20,7 @@ namespace Scuttle.Services
             Models.Art.Graphic.DisplayGraphicAndVersion(_appVersion);
         }
 
-        public string SelectOperationMode()
+        public static string SelectOperationMode()
         {
             string[] options =
             [
@@ -79,7 +79,7 @@ namespace Scuttle.Services
             }
         }
 
-        public void DisplayResults(string encodedToken, byte[] key, AlgorithmMetadata algorithm,
+        public static void DisplayResults(string encodedToken, byte[] key, AlgorithmMetadata algorithm,
                     EncoderMetadata encoding, int originalLength, int encryptedLength)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
@@ -115,7 +115,7 @@ namespace Scuttle.Services
             Console.WriteLine($"URL-safe: {(IsUrlSafe(encodedToken) ? "Yes" : "No")}");
         }
 
-        public void DisplayDecryptedData(byte[] decryptedData)
+        public static void DisplayDecryptedData(byte[] decryptedData)
         {
             string decryptedText = Encoding.UTF8.GetString(decryptedData);
             string[] parts = decryptedText.Split(';');
@@ -161,14 +161,14 @@ namespace Scuttle.Services
             var methods = _configService.GetAllEncoders().ToList();
 
             // Create options array with descriptive text
-            string[] options = methods.Select(m => $"{m.DisplayName}\n   {m.Description}").ToArray();
+            string[] options = [.. methods.Select(m => $"{m.DisplayName}\n   {m.Description}")];
 
             // Use GetMenuSelection directly without displaying methods first
             int selected = GetMenuSelection(options, "Select encoding method:");
             return methods[selected];
         }
 
-        public (string title, string instructions) GetUserInput()
+        public static (string title, string instructions) GetUserInput()
         {
             Console.WriteLine("\nProvide the following inputs to generate a token:");
 
@@ -185,7 +185,7 @@ namespace Scuttle.Services
             return (title, instructions);
         }
 
-        public int GetMenuSelection(string[] options, string prompt = "Select an option:")
+        public static int GetMenuSelection(string[] options, string prompt = "Select an option:")
         {
             const int startX = 2;
             int startY = Console.CursorTop;
@@ -193,7 +193,7 @@ namespace Scuttle.Services
             int currentSelection = 0;
 
             // Calculate how many lines each option will take
-            int[] optionLineCount = options.Select(o => o.Split('\n').Length).ToArray();
+            int[] optionLineCount = [.. options.Select(o => o.Split('\n').Length)];
 
             // Calculate total height needed
             int totalHeight = optionLineCount.Sum() + 1; // +1 for prompt
@@ -278,7 +278,7 @@ namespace Scuttle.Services
             Console.CursorVisible = true;
             return currentSelection;
         }
-        public bool YesNoPrompt(string promptText = "Would you like to perform another operation?")
+        public static bool YesNoPrompt(string promptText = "Would you like to perform another operation?")
         {
             string[] options = ["Yes", "No"];
             int selected = GetMenuSelection(options, promptText);

@@ -63,7 +63,7 @@ namespace Scuttle.Encrypt.Strategies.Salsa20
         /// <summary>
         /// Initialize the Salsa20 state with key and nonce
         /// </summary>
-        protected void InitializeSalsaState(Span<uint> state, byte[] key, ReadOnlySpan<byte> nonce)
+        protected static void InitializeSalsaState(Span<uint> state, byte[] key, ReadOnlySpan<byte> nonce)
         {
             // Initialize with constants - "expand 32-byte k"
             state[0] = ChaChaConstants.StateConstants[0];

@@ -10,7 +10,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
     internal static class ThreeFishStrategyFactory
     {
         private static IThreeFishStrategy? _cachedStrategy;
-        private static readonly object _lock = new object();
+        private static readonly object _lock = new();
 
         /// <summary>
         /// Gets the optimal ThreeFish implementation for the current hardware
@@ -25,10 +25,11 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
                 if ( _cachedStrategy != null )
                     return _cachedStrategy;
 
-                var strategies = new List<IThreeFishStrategy>();
-
-                // Always add scalar strategy as fallback
-                strategies.Add(new ThreeFishScalarStrategy());
+                var strategies = new List<IThreeFishStrategy>
+                {
+                    // Always add scalar strategy as fallback
+                    new ThreeFishScalarStrategy()
+                };
                 logger?.LogDebug("ThreeFish scalar implementation is available");
 
                 // Check for ARM NEON/AdvSimd support

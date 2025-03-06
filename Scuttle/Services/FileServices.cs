@@ -7,7 +7,7 @@ namespace Scuttle.Services
         private readonly DisplayService _displayService = displayService;
         public async Task SaveTokenAsync(string token, string key, string encMethod, string encodeMethod)
         {
-            if ( !_displayService.YesNoPrompt("Would you like to save the token and key to a file?") ) return;
+            if ( !DisplayService.YesNoPrompt("Would you like to save the token and key to a file?") ) return;
 
             string? filePath = null;
             bool validPath = false;
@@ -20,7 +20,7 @@ namespace Scuttle.Services
                 validPath = await VerifyDirectoryAccessAsync(filePath);
                 if ( !validPath )
                 {
-                    if ( !_displayService.YesNoPrompt("Would you like to try a different location?") ) return;
+                    if ( !DisplayService.YesNoPrompt("Would you like to try a different location?") ) return;
                 }
             }
 
@@ -34,7 +34,7 @@ namespace Scuttle.Services
             }
         }
 
-        private async Task<bool> VerifyDirectoryAccessAsync(string filePath)
+        private static async Task<bool> VerifyDirectoryAccessAsync(string filePath)
         {
             try
             {
@@ -60,7 +60,7 @@ namespace Scuttle.Services
             }
         }
 
-        private string? GetFilePath()
+        private static string? GetFilePath()
         {
             Console.WriteLine("\nEnter the file path and name (e.g., C:\\Sample\\Directory\\Location\\FileName.txt):");
             Console.WriteLine("Or press Enter to use the current directory.");
@@ -82,13 +82,13 @@ namespace Scuttle.Services
             }
         }
 
-        private string GenerateDefaultFilePath()
+        private static string GenerateDefaultFilePath()
         {
             string defaultFileName = $"token_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
             return Path.Combine(Environment.CurrentDirectory, defaultFileName);
         }
 
-        private async Task SaveContentToFileAsync(string filePath, string token, string key,
+        private static async Task SaveContentToFileAsync(string filePath, string token, string key,
             string encMethod, string encodeMethod)
         {
             var content = GenerateFileContent(token, key, encMethod, encodeMethod);
@@ -96,7 +96,7 @@ namespace Scuttle.Services
             Console.WriteLine($"\nFile saved successfully to: {filePath}");
         }
 
-        private string GenerateFileContent(string token, string key, string encMethod, string encodeMethod)
+        private static string GenerateFileContent(string token, string key, string encMethod, string encodeMethod)
         {
             return new StringBuilder()
                 .AppendLine("Scuttle Output")

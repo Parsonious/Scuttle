@@ -10,7 +10,7 @@
             Console.Write($"\r{status} {_sequence[_counter++ % _sequence.Length]} ");
         }
 
-        public void Stop(string completionMessage = "Done!")
+        public static void Stop(string completionMessage = "Done!")
         {
             Console.Write($"\r{new string(' ', Console.WindowWidth - 1)}\r");
             Console.WriteLine(completionMessage);

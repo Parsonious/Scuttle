@@ -184,7 +184,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
             CryptoEndianness.ProcessBlock64(output, state);
         }
 
-        private int GetRotation(int roundIndex, int mixIndex)
+        private static int GetRotation(int roundIndex, int mixIndex)
         {
             return roundIndex switch
             {

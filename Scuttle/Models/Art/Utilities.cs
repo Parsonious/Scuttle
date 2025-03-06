@@ -2,7 +2,7 @@
 {
     public class Util
     {
-        public async Task<T> ExecuteWithDelayedSpinner<T>(Func<Task<T>> operation, string spinnerMessage = "Processing", int delayMS = 2000)
+        public static async Task<T> ExecuteWithDelayedSpinner<T>(Func<Task<T>> operation, string spinnerMessage = "Processing", int delayMS = 2000)
         {
             using var cts = new CancellationTokenSource();
 
@@ -22,7 +22,7 @@
                             spinner.Turn(spinnerMessage);
                             await Task.Delay(100);
                         }
-                        spinner.Stop();
+                        ConsoleSpinner.Stop();
                     }
                 }
                 catch ( OperationCanceledException )

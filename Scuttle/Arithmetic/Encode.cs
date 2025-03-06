@@ -23,7 +23,7 @@ namespace Scuttle.Arithmetic
 
             return output;
         }
-        public List<List<bool>> EncodeMultipleStrings(List<string> inputs)
+        public static List<List<bool>> EncodeMultipleStrings(List<string> inputs)
         {
             var results = new List<bool>[inputs.Count];
 
@@ -37,7 +37,7 @@ namespace Scuttle.Arithmetic
                 results[i] = encoder.EncodeSequential(inputs[i]);
             });
 
-            return results.ToList();
+            return [.. results];
         }
 
         public List<bool> EncodeSymbol(char symbol)

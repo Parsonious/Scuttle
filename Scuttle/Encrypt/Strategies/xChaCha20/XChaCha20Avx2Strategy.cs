@@ -46,7 +46,7 @@ namespace Scuttle.Encrypt.Strategies.XChaCha20
                 }
 
                 // Set nonce
-                initialState[13] = BitConverter.ToUInt32(nonce.Slice(0, 4));
+                initialState[13] = BitConverter.ToUInt32(nonce[..4]);
                 initialState[14] = BitConverter.ToUInt32(nonce.Slice(4, 4));
                 initialState[15] = 0; // Last word is zero for XChaCha20
 
@@ -233,42 +233,46 @@ namespace Scuttle.Encrypt.Strategies.XChaCha20
         private static void StoreDeinterleavedBlocks(Vector256<uint>[] x, byte[] output)
         {
             // Extract first block (first 4 lanes of each vector)
-            Span<uint> block1 = stackalloc uint[16];
-            block1[0] = x[0].GetElement(0);
-            block1[1] = x[0].GetElement(1);
-            block1[2] = x[0].GetElement(2);
-            block1[3] = x[0].GetElement(3);
-            block1[4] = x[1].GetElement(0);
-            block1[5] = x[1].GetElement(1);
-            block1[6] = x[1].GetElement(2);
-            block1[7] = x[1].GetElement(3);
-            block1[8] = x[2].GetElement(0);
-            block1[9] = x[2].GetElement(1);
-            block1[10] = x[2].GetElement(2);
-            block1[11] = x[2].GetElement(3);
-            block1[12] = x[3].GetElement(0);
-            block1[13] = x[3].GetElement(1);
-            block1[14] = x[3].GetElement(2);
-            block1[15] = x[3].GetElement(3);
+            Span<uint> block1 =
+            [
+                x[0].GetElement(0),
+                x[0].GetElement(1),
+                x[0].GetElement(2),
+                x[0].GetElement(3),
+                x[1].GetElement(0),
+                x[1].GetElement(1),
+                x[1].GetElement(2),
+                x[1].GetElement(3),
+                x[2].GetElement(0),
+                x[2].GetElement(1),
+                x[2].GetElement(2),
+                x[2].GetElement(3),
+                x[3].GetElement(0),
+                x[3].GetElement(1),
+                x[3].GetElement(2),
+                x[3].GetElement(3),
+            ];
 
             // Extract second block (last 4 lanes of each vector)
-            Span<uint> block2 = stackalloc uint[16];
-            block2[0] = x[0].GetElement(4);
-            block2[1] = x[0].GetElement(5);
-            block2[2] = x[0].GetElement(6);
-            block2[3] = x[0].GetElement(7);
-            block2[4] = x[1].GetElement(4);
-            block2[5] = x[1].GetElement(5);
-            block2[6] = x[1].GetElement(6);
-            block2[7] = x[1].GetElement(7);
-            block2[8] = x[2].GetElement(4);
-            block2[9] = x[2].GetElement(5);
-            block2[10] = x[2].GetElement(6);
-            block2[11] = x[2].GetElement(7);
-            block2[12] = x[3].GetElement(4);
-            block2[13] = x[3].GetElement(5);
-            block2[14] = x[3].GetElement(6);
-            block2[15] = x[3].GetElement(7);
+            Span<uint> block2 =
+            [
+                x[0].GetElement(4),
+                x[0].GetElement(5),
+                x[0].GetElement(6),
+                x[0].GetElement(7),
+                x[1].GetElement(4),
+                x[1].GetElement(5),
+                x[1].GetElement(6),
+                x[1].GetElement(7),
+                x[2].GetElement(4),
+                x[2].GetElement(5),
+                x[2].GetElement(6),
+                x[2].GetElement(7),
+                x[3].GetElement(4),
+                x[3].GetElement(5),
+                x[3].GetElement(6),
+                x[3].GetElement(7),
+            ];
 
             // Store blocks sequentially with proper endianness handling
             for ( int i = 0; i < 16; i++ )

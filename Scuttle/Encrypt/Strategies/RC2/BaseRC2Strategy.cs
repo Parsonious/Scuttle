@@ -32,7 +32,7 @@
         /// <summary>
         /// Validates input parameters for encryption methods
         /// </summary>
-        protected void ValidateInputs(byte[] data, byte[] key)
+        protected static void ValidateInputs(byte[] data, byte[] key)
         {
             if ( data == null || data.Length == 0 )
                 throw new ArgumentException("Data cannot be null or empty.", nameof(data));

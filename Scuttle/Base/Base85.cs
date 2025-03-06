@@ -50,7 +50,7 @@ namespace Scuttle.Base
             dataWithLength.AddRange(data);
 
             // 2. Use the combined data (length + original data) for encoding
-            byte[] paddedData = dataWithLength.ToArray();
+            byte[] paddedData = [.. dataWithLength];
             int encodedLength = (paddedData.Length + 3) / 4 * 5;
             char[] encodedChars = new char[encodedLength];
 

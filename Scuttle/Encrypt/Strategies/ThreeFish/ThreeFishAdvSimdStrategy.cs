@@ -18,7 +18,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         public override string Description => "ARM AdvSimd (NEON) Implementation";
        
         // Fields for pre-computed permutation vectors to speed up permutation operations on ARM64
-        private static readonly Vector128<long>? PermutationControl;
+        private static readonly Vector128<long>? _permutationControl;
 
         /// <summary>
         /// Check if ARM AdvSimd is supported on the current hardware
@@ -33,7 +33,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
             {
                 // Initialize permutation control vectors for ARM64
                 // This will let us use advanced Arm64 shuffling instructions
-                PermutationControl = Vector128.Create(0L, 3L, 2L, 1L).AsInt64();
+                _permutationControl = Vector128.Create(0L, 3L, 2L, 1L).AsInt64();
             }
         }
         public override byte[] Encrypt(byte[] data, byte[] key)
@@ -417,7 +417,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Special optimized implementation for ARM64/AArch64 processors with full NEON support
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private Vector128<ulong> OptimizedArm64Add(Vector128<ulong> a, Vector128<ulong> b)
+        private static Vector128<ulong> OptimizedArm64Add(Vector128<ulong> a, Vector128<ulong> b)
         {
             // ARM64-specific optimizations if available
             if ( AdvSimd.Arm64.IsSupported )
@@ -436,7 +436,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Special optimized implementation for ARM64/AArch64 processors
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private Vector128<ulong> OptimizedArm64Subtract(Vector128<ulong> a, Vector128<ulong> b)
+        private static Vector128<ulong> OptimizedArm64Subtract(Vector128<ulong> a, Vector128<ulong> b)
         {
             // ARM64-specific optimizations if available
             if ( AdvSimd.Arm64.IsSupported )
@@ -517,7 +517,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Optimized mix function implementation that uses ARM64-specific instructions when available
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void MixVectorsAdvSimd(ref Vector128<ulong> v0, ref Vector128<ulong> v1, int rotation, bool firstRound)
+        private static void MixVectorsAdvSimd(ref Vector128<ulong> v0, ref Vector128<ulong> v1, int rotation, bool firstRound)
         {
             if ( firstRound )
             {
@@ -547,7 +547,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Optimized unmix function implementation that uses ARM64-specific instructions when available
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void UnmixVectorsAdvSimd(ref Vector128<ulong> v0, ref Vector128<ulong> v1, int rotation, bool firstRound)
+        private static void UnmixVectorsAdvSimd(ref Vector128<ulong> v0, ref Vector128<ulong> v1, int rotation, bool firstRound)
         {
             if ( firstRound )
             {
@@ -577,7 +577,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Apply permutation to state vectors using ARM AdvSimd
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyPermutationAdvSimd(Vector128<ulong>[] state)
+        private static void ApplyPermutationAdvSimd(Vector128<ulong>[] state)
         {
             // ARM64 has specialized shuffling instructions that we can use 
             // instead of manual swapping when available
@@ -614,7 +614,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Apply inverse permutation to state vectors using ARM AdvSimd
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyInversePermutationAdvSimd(Vector128<ulong>[] state)
+        private static void ApplyInversePermutationAdvSimd(Vector128<ulong>[] state)
         {
             // Inverse of permutation {0, 3, 2, 1} is {0, 3, 2, 1}
             // Save original state for permutation
@@ -635,6 +635,8 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// </summary>
         private void StoreStateToOutput(Vector128<ulong>[] state, Span<byte> output)
         {
+            Span<ulong> values = stackalloc ulong[8];
+
             // For ARM64, we can optimize memory access patterns
             if ( AdvSimd.Arm64.IsSupported )
             {
@@ -647,8 +649,6 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
             else
             {
                 // Original implementation for 32-bit ARM
-                Span<ulong> values = stackalloc ulong[8];
-
                 values[0] = state[0].GetElement(0);
                 values[1] = state[0].GetElement(1);
                 values[2] = state[1].GetElement(0);
@@ -676,7 +676,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Optimized loader for ARM64 platforms
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private Vector128<ulong> LoadUInt64PairOptimized(ReadOnlySpan<byte> data, int offset)
+        private static Vector128<ulong> LoadUInt64PairOptimized(ReadOnlySpan<byte> data, int offset)
         {
             // ARM optimized load operation
             ulong v0 = BitConverter.ToUInt64(data.Slice(offset, 8));
@@ -695,7 +695,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Optimized store for ARM64 platforms
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void StoreUInt64PairOptimized(Vector128<ulong> vector, Span<byte> output, int offset)
+        private static void StoreUInt64PairOptimized(Vector128<ulong> vector, Span<byte> output, int offset)
         {
             ulong v0 = vector.GetElement(0);
             ulong v1 = vector.GetElement(1);
@@ -714,7 +714,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Add key schedule values to a Vector128 using ARM AdvSimd
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private Vector128<ulong> AddKeyToVectorAdvSimd(Vector128<ulong> vector, ulong[] keySchedule, int offset)
+        private static Vector128<ulong> AddKeyToVectorAdvSimd(Vector128<ulong> vector, ulong[] keySchedule, int offset)
         {
             // Create a Vector128 from two consecutive key schedule values
             Vector128<ulong> keyVector = Vector128.Create(
@@ -730,7 +730,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Subtract key schedule values from a Vector128 using ARM AdvSimd
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private Vector128<ulong> SubtractKeyFromVectorAdvSimd(Vector128<ulong> vector, ulong[] keySchedule, int offset)
+        private static Vector128<ulong> SubtractKeyFromVectorAdvSimd(Vector128<ulong> vector, ulong[] keySchedule, int offset)
         {
             // Create a Vector128 from two consecutive key schedule values
             Vector128<ulong> keyVector = Vector128.Create(
@@ -745,7 +745,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// <summary>
         /// Get rotation value from appropriate rotation table based on indexes
         /// </summary>
-        private int GetRotation(int roundIndex, int mixIndex)
+        private static int GetRotation(int roundIndex, int mixIndex)
         {
             return roundIndex switch
             {
@@ -761,7 +761,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Apply multiple rounds of ThreeFish encryption using ARM AdvSimd intrinsics
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyRoundsAdvSimd(Vector128<ulong>[] state, ulong[] keySchedule, int startRound)
+        private static void ApplyRoundsAdvSimd(Vector128<ulong>[] state, ulong[] keySchedule, int startRound)
         {
             for ( int r = startRound; r < startRound + 2 && r < 72; r++ )
             {
@@ -790,7 +790,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Apply multiple rounds of ThreeFish decryption in reverse using ARM AdvSimd intrinsics
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyRoundsInReverseAdvSimd(Vector128<ulong>[] state, ulong[] keySchedule, int startRound)
+        private static void ApplyRoundsInReverseAdvSimd(Vector128<ulong>[] state, ulong[] keySchedule, int startRound)
         {
             for ( int r = startRound + 1; r >= startRound; r-- )
             {

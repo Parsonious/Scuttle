@@ -1,8 +1,5 @@
-﻿// File: Scuttle/Encrypt/Strategies/Salsa20/Salsa20AdvSimdStrategy.cs
-using System;
-using System.Buffers;
+﻿using System.Buffers;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.Arm;
 using System.Runtime.Versioning;
@@ -29,10 +26,11 @@ namespace Scuttle.Encrypt.Strategies.Salsa20
 
             try
             {
+                Span<uint> blockState = stackalloc uint[16];
+
                 while ( position < inputChunk.Length )
                 {
                     // Make a copy of the state for this block
-                    Span<uint> blockState = stackalloc uint[16];
                     initialState.CopyTo(blockState);
 
                     // Set the counter for this block

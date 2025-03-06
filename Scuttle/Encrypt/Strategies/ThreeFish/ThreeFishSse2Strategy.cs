@@ -182,7 +182,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Apply multiple rounds of ThreeFish encryption using SSE2 intrinsics
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyRoundsSse2(Vector128<ulong>[] state, ulong[] keySchedule, int startRound)
+        private static void ApplyRoundsSse2(Vector128<ulong>[] state, ulong[] keySchedule, int startRound)
         {
             for ( int r = startRound; r < startRound + 2 && r < 72; r++ )
             {
@@ -211,7 +211,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Apply multiple rounds of ThreeFish decryption in reverse using SSE2 intrinsics
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyRoundsInReverseSse2(Vector128<ulong>[] state, ulong[] keySchedule, int startRound)
+        private static void ApplyRoundsInReverseSse2(Vector128<ulong>[] state, ulong[] keySchedule, int startRound)
         {
             for ( int r = startRound + 1; r >= startRound; r-- )
             {
@@ -239,7 +239,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// <summary>
         /// Get rotation value from appropriate rotation table based on indexes
         /// </summary>
-        private int GetRotation(int roundIndex, int mixIndex)
+        private static int GetRotation(int roundIndex, int mixIndex)
         {
             return roundIndex switch
             {
@@ -255,7 +255,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Add key schedule values to a Vector128 using SSE2
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private Vector128<ulong> AddKeyToVectorSse2(Vector128<ulong> vector, ulong[] keySchedule, int offset)
+        private static Vector128<ulong> AddKeyToVectorSse2(Vector128<ulong> vector, ulong[] keySchedule, int offset)
         {
             // Create a Vector128 from two consecutive key schedule values
             Vector128<ulong> keyVector = Vector128.Create(
@@ -271,7 +271,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Subtract key schedule values from a Vector128 using SSE2
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private Vector128<ulong> SubtractKeyFromVectorSse2(Vector128<ulong> vector, ulong[] keySchedule, int offset)
+        private static Vector128<ulong> SubtractKeyFromVectorSse2(Vector128<ulong> vector, ulong[] keySchedule, int offset)
         {
             // Create a Vector128 from two consecutive key schedule values
             Vector128<ulong> keyVector = Vector128.Create(
@@ -287,7 +287,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Apply the mix function to a pair of SSE2 vectors
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void MixVectorsSse2(ref Vector128<ulong> v0, ref Vector128<ulong> v1, int rotation, bool firstRound)
+        private static void MixVectorsSse2(ref Vector128<ulong> v0, ref Vector128<ulong> v1, int rotation, bool firstRound)
         {
             if ( firstRound )
             {
@@ -317,7 +317,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Apply the inverse mix function to a pair of SSE2 vectors
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void UnmixVectorsSse2(ref Vector128<ulong> v0, ref Vector128<ulong> v1, int rotation, bool firstRound)
+        private static void UnmixVectorsSse2(ref Vector128<ulong> v0, ref Vector128<ulong> v1, int rotation, bool firstRound)
         {
             if ( firstRound )
             {
@@ -347,7 +347,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Apply permutation to state vectors using SSE2 shuffles
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyPermutationSse2(Vector128<ulong>[] state)
+        private static void ApplyPermutationSse2(Vector128<ulong>[] state)
         {
             // Permutation is {0, 3, 2, 1} - rearranging vectors based on permutation pattern
             // Save original state for permutation
@@ -368,7 +368,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Apply inverse permutation to state vectors using SSE2 shuffles
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyInversePermutationSse2(Vector128<ulong>[] state)
+        private static void ApplyInversePermutationSse2(Vector128<ulong>[] state)
         {
             // Inverse of permutation {0, 3, 2, 1} is {0, 3, 2, 1}
             // Save original state for permutation
@@ -387,20 +387,21 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// <summary>
         /// Store the final state vectors to output byte array
         /// </summary>
-        private void StoreStateToOutput(Vector128<ulong>[] state, Span<byte> output)
+        private static void StoreStateToOutput(Vector128<ulong>[] state, Span<byte> output)
         {
             // Extract values from SSE2 vectors to temporary buffer
-            Span<ulong> values = stackalloc ulong[8];
-
-            // Extract from vectors (2 values per vector)
-            values[0] = state[0].GetElement(0);
-            values[1] = state[0].GetElement(1);
-            values[2] = state[1].GetElement(0);
-            values[3] = state[1].GetElement(1);
-            values[4] = state[2].GetElement(0);
-            values[5] = state[2].GetElement(1);
-            values[6] = state[3].GetElement(0);
-            values[7] = state[3].GetElement(1);
+            Span<ulong> values =
+            [
+                // Extract from vectors (2 values per vector)
+                state[0].GetElement(0),
+                state[0].GetElement(1),
+                state[1].GetElement(0),
+                state[1].GetElement(1),
+                state[2].GetElement(0),
+                state[2].GetElement(1),
+                state[3].GetElement(0),
+                state[3].GetElement(1),
+            ];
 
             // Convert values to bytes with proper endianness
             for ( int i = 0; i < 8; i++ )

@@ -11,7 +11,7 @@ namespace Scuttle.Encrypt.Strategies.RC2
         public override string Description => "Enhanced RC2 Implementation";
 
         // Effective key bits - the higher the better, but RC2 supports up to 128 bits (1 to 1024 bits)
-        private const int EffectiveKeySizeBits = 128;
+        private const int _effectiveKeySizeBits = 128;
 
         public override byte[] Encrypt(byte[] data, byte[] key)
         {
@@ -27,18 +27,15 @@ namespace Scuttle.Encrypt.Strategies.RC2
             using var rc2 = System.Security.Cryptography.RC2.Create();
             rc2.Key = derivedKey;
             rc2.IV = iv;
-            rc2.EffectiveKeySize = EffectiveKeySizeBits;
+            rc2.EffectiveKeySize = _effectiveKeySizeBits;
 
             using var msEncrypt = new MemoryStream();
             // Write IV to the beginning of the stream
             msEncrypt.Write(iv, 0, iv.Length);
 
             // Also include a SHA256 hash of the original data for integrity checking
-            using ( var sha256 = SHA256.Create() )
-            {
-                byte[] hash = sha256.ComputeHash(data);
-                msEncrypt.Write(hash, 0, hash.Length);
-            }
+            byte[] hash = SHA256.HashData(data);
+            msEncrypt.Write(hash, 0, hash.Length);
 
             using ( var cryptoStream = new CryptoStream(msEncrypt, rc2.CreateEncryptor(), CryptoStreamMode.Write) )
             using ( var writer = new BinaryWriter(cryptoStream) )
@@ -73,7 +70,7 @@ namespace Scuttle.Encrypt.Strategies.RC2
             using var rc2 = System.Security.Cryptography.RC2.Create();
             rc2.Key = derivedKey;
             rc2.IV = iv;
-            rc2.EffectiveKeySize = EffectiveKeySizeBits;
+            rc2.EffectiveKeySize = _effectiveKeySizeBits;
 
             using var msDecrypt = new MemoryStream(encryptedData, IVSize + 32, encryptedData.Length - IVSize - 32);
             using var cryptoStream = new CryptoStream(msDecrypt, rc2.CreateDecryptor(), CryptoStreamMode.Read);
@@ -83,15 +80,12 @@ namespace Scuttle.Encrypt.Strategies.RC2
             byte[] decryptedData = reader.ReadBytes(length); // Read data
 
             // Verify integrity using the stored hash
-            using ( var sha256 = SHA256.Create() )
-            {
-                byte[] computedHash = sha256.ComputeHash(decryptedData);
+            byte[] computedHash = SHA256.HashData(decryptedData);
 
-                // Compare hashes in constant time to prevent timing attacks
-                if ( !ConstantTimeEquals(storedHash, computedHash) )
-                {
-                    throw new CryptographicException("Data integrity check failed. The data may have been tampered with.");
-                }
+            // Compare hashes in constant time to prevent timing attacks
+            if ( !ConstantTimeEquals(storedHash, computedHash) )
+            {
+                throw new CryptographicException("Data integrity check failed. The data may have been tampered with.");
             }
 
             return decryptedData;
@@ -100,7 +94,7 @@ namespace Scuttle.Encrypt.Strategies.RC2
         /// <summary>
         /// Constant-time comparison of two byte arrays to prevent timing attacks
         /// </summary>
-        private bool ConstantTimeEquals(byte[] a, byte[] b)
+        private static bool ConstantTimeEquals(byte[] a, byte[] b)
         {
             if ( a.Length != b.Length )
                 return false;

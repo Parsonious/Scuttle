@@ -38,7 +38,7 @@ namespace Scuttle.Encrypt.Strategies.XChaCha20
                 throw new ArgumentException("Nonce must be 24 bytes for XChaCha20", nameof(nonce));
 
             // Derive the subkey and subnonce using HChaCha20
-            byte[] subkey = HChaCha20(key, nonce.Slice(0, 16));
+            byte[] subkey = HChaCha20(key, nonce[..16]);
 
             // Process blocks in chunks for better cache locality
             const int chunkSize = 16 * 1024; // 16KB chunks
@@ -60,7 +60,7 @@ namespace Scuttle.Encrypt.Strategies.XChaCha20
         public byte[] GenerateKeyStream(byte[] key, ReadOnlySpan<byte> nonce, int length)
         {
             byte[] keyStream = new byte[length];
-            byte[] subkey = HChaCha20(key, nonce.Slice(0, 16));
+            byte[] subkey = HChaCha20(key, nonce[..16]);
 
             // Initialize state
             Span<uint> state = stackalloc uint[16];

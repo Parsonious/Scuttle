@@ -67,7 +67,7 @@ namespace Scuttle.Base
                 }
             }
 
-            return data.ToArray();
+            return [.. data];
         }
     }
 }

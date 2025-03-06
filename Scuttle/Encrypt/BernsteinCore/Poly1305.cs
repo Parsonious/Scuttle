@@ -39,14 +39,14 @@ namespace Scuttle.Encrypt.BernSteinCore
             {
                 // Load bytes into SIMD registers and convert to uint32 values
                 var rVector = Vector128.Create(
-                    BitConverter.ToUInt32(r.Slice(0, 4)),
+                    BitConverter.ToUInt32(r[..4]),
                     BitConverter.ToUInt32(r.Slice(4, 4)),
                     BitConverter.ToUInt32(r.Slice(8, 4)),
                     BitConverter.ToUInt32(r.Slice(12, 4))
                 );
 
                 var sVector = Vector128.Create(
-                    BitConverter.ToUInt32(s.Slice(0, 4)),
+                    BitConverter.ToUInt32(s[..4]),
                     BitConverter.ToUInt32(s.Slice(4, 4)),
                     BitConverter.ToUInt32(s.Slice(8, 4)),
                     BitConverter.ToUInt32(s.Slice(12, 4))
@@ -71,6 +71,8 @@ namespace Scuttle.Encrypt.BernSteinCore
             // Process message blocks
             int blockSize = 16;
             int blocksCount = (message.Length + blockSize - 1) / blockSize;
+            Span<byte> padding = stackalloc byte[16];
+
 
             for ( int i = 0; i < blocksCount; i++ )
             {
@@ -82,18 +84,17 @@ namespace Scuttle.Encrypt.BernSteinCore
                     if ( blockLen == 16 )
                     {
                         ReadOnlySpan<byte> blockSpan = message.Slice(i * 16, 16);
-                        block[0] = BitConverter.ToUInt32(blockSpan.Slice(0, 4));
+                        block[0] = BitConverter.ToUInt32(blockSpan[..4]);
                         block[1] = BitConverter.ToUInt32(blockSpan.Slice(4, 4));
                         block[2] = BitConverter.ToUInt32(blockSpan.Slice(8, 4));
                         block[3] = BitConverter.ToUInt32(blockSpan.Slice(12, 4));
                     }
                     else
                     {
-                        Span<byte> padding = stackalloc byte[16];
                         message.Slice(i * 16, blockLen).CopyTo(padding);
                         padding[blockLen] = 1; // Add 1 byte after the message as per Poly1305
 
-                        block[0] = BitConverter.ToUInt32(padding.Slice(0, 4));
+                        block[0] = BitConverter.ToUInt32(padding[..4]);
                         block[1] = BitConverter.ToUInt32(padding.Slice(4, 4));
                         block[2] = BitConverter.ToUInt32(padding.Slice(8, 4));
                         block[3] = BitConverter.ToUInt32(padding.Slice(12, 4));
@@ -109,25 +110,25 @@ namespace Scuttle.Encrypt.BernSteinCore
                     h4 += (uint) (t0 >> 32 | t1 >> 32 | t2 >> 32 | t3 >> 32);
 
                     // Multiply by r using optimized multiplication
-                    ulong d0 = h0 * (ulong) rNum[0] +
-                               h1 * (ulong) rNum[3] +
-                               h2 * (ulong) rNum[2] +
-                               h3 * (ulong) rNum[1];
+                    ulong d0 = h0 * rNum[0] +
+                               h1 * rNum[3] +
+                               h2 * rNum[2] +
+                               h3 * rNum[1];
 
-                    ulong d1 = h0 * (ulong) rNum[1] +
-                               h1 * (ulong) rNum[0] +
-                               h2 * (ulong) rNum[3] +
-                               h3 * (ulong) rNum[2];
+                    ulong d1 = h0 * rNum[1] +
+                               h1 * rNum[0] +
+                               h2 * rNum[3] +
+                               h3 * rNum[2];
 
-                    ulong d2 = h0 * (ulong) rNum[2] +
-                               h1 * (ulong) rNum[1] +
-                               h2 * (ulong) rNum[0] +
-                               h3 * (ulong) rNum[3];
+                    ulong d2 = h0 * rNum[2] +
+                               h1 * rNum[1] +
+                               h2 * rNum[0] +
+                               h3 * rNum[3];
 
-                    ulong d3 = h0 * (ulong) rNum[3] +
-                               h1 * (ulong) rNum[2] +
-                               h2 * (ulong) rNum[1] +
-                               h3 * (ulong) rNum[0];
+                    ulong d3 = h0 * rNum[3] +
+                               h1 * rNum[2] +
+                               h2 * rNum[1] +
+                               h3 * rNum[0];
 
                     // Partial reduction modulo 2^130 - 5
                     ulong c = d0 >> 32;

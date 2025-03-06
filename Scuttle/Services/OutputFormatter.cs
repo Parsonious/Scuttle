@@ -4,7 +4,7 @@ namespace Scuttle.Services
 {
     public class OutputFormatter
     {
-        public string Format(object data, string format)
+        public static string Format(object data, string format)
         {
             return format.ToLower() switch
             {

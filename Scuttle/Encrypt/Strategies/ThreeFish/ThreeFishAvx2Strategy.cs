@@ -20,7 +20,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         public override string Description => "AVX2 SIMD Implementation (fully optimized)";
         // Cache these values for optimal AVX2 performance
         // Pre-calculated constants to avoid repeated calculations
-        private static readonly byte[] PermutationControls = { 0b_10_11_00_01 };
+        private static readonly byte[] _permutationControls = [ 0b_10_11_00_01 ];
         public override byte[] Encrypt(byte[] data, byte[] key)
         {
             ValidateInputs(data, key);
@@ -309,6 +309,8 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void InitializeStateVectorsOptimized(Vector256<ulong>[] state, ReadOnlySpan<byte> input)
         {
+            Span<ulong> values = stackalloc ulong[8];
+
             unsafe
             {
                 fixed ( byte* inputPtr = input )
@@ -335,7 +337,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
                     else
                     {
                         // For big-endian systems, manually swap bytes
-                        Span<ulong> values = stackalloc ulong[8];
+                    
                         for ( int i = 0; i < 8; i++ )
                         {
                             values[i] = BitConverter.ToUInt64(input.Slice(i * 8, 8));
@@ -356,7 +358,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
             /// Apply multiple rounds of ThreeFish encryption at once for better instruction pipelining
             /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyMultipleRoundsAvx2Optimized(Vector256<ulong>[] state, Vector256<ulong>[] keyVectors, int startRound)
+        private static void ApplyMultipleRoundsAvx2Optimized(Vector256<ulong>[] state, Vector256<ulong>[] keyVectors, int startRound)
         {
             // Apply 8 rounds at once in forward direction
             // We're processing many rounds together to maximize instruction-level parallelism
@@ -422,7 +424,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Apply multiple rounds of ThreeFish decryption in reverse with enhanced AVX2 optimizations
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyMultipleRoundsInReverseAvx2Optimized(Vector256<ulong>[] state, Vector256<ulong>[] keyVectors, int startRound)
+        private static void ApplyMultipleRoundsInReverseAvx2Optimized(Vector256<ulong>[] state, Vector256<ulong>[] keyVectors, int startRound)
         {
             // Apply 8 rounds at once in reverse direction
             // We're processing many rounds together to maximize instruction-level parallelism
@@ -487,7 +489,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Optimized version of permutation that reduces register pressure
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyPermutationAvx2Optimized(Vector256<ulong>[] state)
+        private static void ApplyPermutationAvx2Optimized(Vector256<ulong>[] state)
         {
             // Use a constant pattern directly
             const byte permControl = 0b_10_11_00_01; // Maps to {0, 3, 2, 1}
@@ -508,7 +510,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Optimized version of inverse permutation that reduces register pressure
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyInversePermutationAvx2Optimized(Vector256<ulong>[] state)
+        private static void ApplyInversePermutationAvx2Optimized(Vector256<ulong>[] state)
         {
             // For ThreeFish permutation [0,3,2,1], the inverse is the same
             const byte permControl = 0b_10_11_00_01;
@@ -591,7 +593,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// <summary>
         /// Creates pre-calculated key schedule offsets for faster lookup
         /// </summary>
-        private Vector256<int>[] CreateKeyOffsets()
+        private static Vector256<int>[] CreateKeyOffsets()
         {
             Vector256<int>[] offsets = new Vector256<int>[19]; // For 19 key schedule iterations
             for ( int i = 0; i < 19; i++ )
@@ -649,6 +651,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// </summary>
         private void InitializeStateVectors(Vector256<ulong>[] state, ReadOnlySpan<byte> input)
         {
+            Span<ulong> values = stackalloc ulong[8];
             // Use AVX2 to load and process data efficiently
             unsafe
             {
@@ -667,7 +670,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
                     else
                     {
                         // For big-endian systems, need to swap byte order
-                        Span<ulong> values = stackalloc ulong[8];
+
                         for ( int i = 0; i < 8; i++ )
                         {
                             values[i] = BitConverter.ToUInt64(input.Slice(i * 8, 8));
@@ -689,7 +692,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Apply multiple rounds of ThreeFish encryption using AVX2 intrinsics
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyRoundsAvx2(Vector256<ulong>[] state, Vector256<ulong>[] keyVectors, Vector256<int>[] keyOffsets, int startRound)
+        private static void ApplyRoundsAvx2(Vector256<ulong>[] state, Vector256<ulong>[] keyVectors, Vector256<int>[] keyOffsets, int startRound)
         {
             for ( int r = startRound; r < startRound + 4 && r < 72; r++ )
             {
@@ -719,7 +722,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Apply multiple rounds of ThreeFish decryption in reverse using AVX2 intrinsics
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyRoundsInReverseAvx2(Vector256<ulong>[] state, Vector256<ulong>[] keyVectors, Vector256<int>[] keyOffsets, int startRound)
+        private static void ApplyRoundsInReverseAvx2(Vector256<ulong>[] state, Vector256<ulong>[] keyVectors, Vector256<int>[] keyOffsets, int startRound)
         {
             for ( int r = startRound + 3; r >= startRound; r-- )
             {
@@ -748,7 +751,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Apply permutation to all state vectors using optimized AVX2 shuffle operations
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyPermutationAvx2(Vector256<ulong>[] state)
+        private static void ApplyPermutationAvx2(Vector256<ulong>[] state)
         {
             // Use a constant pattern for the permutation
             // Pattern maps {0, 3, 2, 1}
@@ -770,7 +773,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// Apply inverse permutation to all state vectors using optimized AVX2 shuffle operations
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyInversePermutationAvx2(Vector256<ulong>[] state)
+        private static void ApplyInversePermutationAvx2(Vector256<ulong>[] state)
         {
             // For ThreeFish, the inverse permutation is the same as the forward permutation
             // Pattern maps {0, 3, 2, 1}
@@ -794,6 +797,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private Vector256<ulong> GetKeyVectorOptimized(Vector256<ulong>[] keyVectors, Vector256<int> offsets)
         {
+            Span<int> offsetValues = stackalloc int[8];
             // Use direct pointer-based access instead of problematic gather operation
             unsafe
             {
@@ -804,12 +808,11 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
                     var result = new Vector256<ulong>();
 
                     // Extract offset values
-                    Span<int> offsetValues = stackalloc int[8];
+                    
                     for ( int i = 0; i < 8; i++ )
                     {
                         offsetValues[i] = offsets.GetElement(i);
                     }
-
                     // Manually gather the values
                     ulong* resultPtr = (ulong*) &result;
                     for ( int i = 0; i < 8; i++ )
@@ -824,7 +827,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// <summary>
         /// Get rotation value from appropriate rotation table based on indexes
         /// </summary>
-        private int GetRotation(int roundIndex, int mixIndex)
+        private static int GetRotation(int roundIndex, int mixIndex)
         {
             return roundIndex switch
             {
@@ -839,7 +842,7 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         /// <summary>
         /// Get a key vector from the pre-processed key schedule
         /// </summary>
-        private Vector256<ulong> GetKeyVector(Vector256<ulong>[] keyVectors, int scheduleIndex, int vectorOffset)
+        private static Vector256<ulong> GetKeyVector(Vector256<ulong>[] keyVectors, int scheduleIndex, int vectorOffset)
         {
             int index = scheduleIndex * 2 + vectorOffset;
             if ( index < keyVectors.Length )
@@ -876,17 +879,17 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
                     else
                     {
                         // For big-endian systems, swap byte order when storing
-                        Span<ulong> values = stackalloc ulong[8];
-
-                        values[0] = state[0].GetElement(0);
-                        values[1] = state[0].GetElement(1);
-                        values[2] = state[0].GetElement(2);
-                        values[3] = state[0].GetElement(3);
-                        values[4] = state[1].GetElement(0);
-                        values[5] = state[1].GetElement(1);
-                        values[6] = state[1].GetElement(2);
-                        values[7] = state[1].GetElement(3);
-
+                        Span<ulong> values =
+                        [
+                            state[0].GetElement(0),
+                            state[0].GetElement(1),
+                            state[0].GetElement(2),
+                            state[0].GetElement(3),
+                            state[1].GetElement(0),
+                            state[1].GetElement(1),
+                            state[1].GetElement(2),
+                            state[1].GetElement(3),
+                        ];
                         for ( int i = 0; i < 8; i++ )
                         {
                             ulong swapped = EndianHelper.SwapUInt64(values[i]);
@@ -1034,68 +1037,52 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         {
             // Use hardcoded rotation values for the most common cases in ThreeFish
             // This eliminates variable shifts and enables better instruction scheduling
-            switch ( rotation )
+            return rotation switch
             {
-                case 14:
-                    return Avx2.Or(
-                        Avx2.ShiftLeftLogical(value, 14),
-                        Avx2.ShiftRightLogical(value, 50));
-                case 17:
-                    return Avx2.Or(
-                        Avx2.ShiftLeftLogical(value, 17),
-                        Avx2.ShiftRightLogical(value, 47));
-                case 19:
-                    return Avx2.Or(
-                        Avx2.ShiftLeftLogical(value, 19),
-                        Avx2.ShiftRightLogical(value, 45));
-                case 27:
-                    return Avx2.Or(
-                        Avx2.ShiftLeftLogical(value, 27),
-                        Avx2.ShiftRightLogical(value, 37));
-                case 33:
-                    return Avx2.Or(
-                        Avx2.ShiftLeftLogical(value, 33),
-                        Avx2.ShiftRightLogical(value, 31));
-                case 34:
-                    return Avx2.Or(
-                        Avx2.ShiftLeftLogical(value, 34),
-                        Avx2.ShiftRightLogical(value, 30));
-                case 36:
-                    return Avx2.Or(
-                        Avx2.ShiftLeftLogical(value, 36),
-                        Avx2.ShiftRightLogical(value, 28));
-                case 37:
-                    return Avx2.Or(
-                        Avx2.ShiftLeftLogical(value, 37),
-                        Avx2.ShiftRightLogical(value, 27));
-                case 39:
-                    return Avx2.Or(
-                        Avx2.ShiftLeftLogical(value, 39),
-                        Avx2.ShiftRightLogical(value, 25));
-                case 42:
-                    return Avx2.Or(
-                        Avx2.ShiftLeftLogical(value, 42),
-                        Avx2.ShiftRightLogical(value, 22));
-                case 44:
-                    return Avx2.Or(
-                        Avx2.ShiftLeftLogical(value, 44),
-                        Avx2.ShiftRightLogical(value, 20));
-                case 46:
-                    return Avx2.Or(
-                        Avx2.ShiftLeftLogical(value, 46),
-                        Avx2.ShiftRightLogical(value, 18));
-                case 49:
-                    return Avx2.Or(
-                        Avx2.ShiftLeftLogical(value, 49),
-                        Avx2.ShiftRightLogical(value, 15));
-                case 56:
-                    return Avx2.Or(
-                        Avx2.ShiftLeftLogical(value, 56),
-                        Avx2.ShiftRightLogical(value, 8));
-                default:
-                    // Generic case falls back to the existing implementation
-                    return VectorRotateLeft64(value, rotation);
-            }
+                14 => Avx2.Or(
+                                        Avx2.ShiftLeftLogical(value, 14),
+                                        Avx2.ShiftRightLogical(value, 50)),
+                17 => Avx2.Or(
+                                        Avx2.ShiftLeftLogical(value, 17),
+                                        Avx2.ShiftRightLogical(value, 47)),
+                19 => Avx2.Or(
+                                        Avx2.ShiftLeftLogical(value, 19),
+                                        Avx2.ShiftRightLogical(value, 45)),
+                27 => Avx2.Or(
+                                        Avx2.ShiftLeftLogical(value, 27),
+                                        Avx2.ShiftRightLogical(value, 37)),
+                33 => Avx2.Or(
+                                        Avx2.ShiftLeftLogical(value, 33),
+                                        Avx2.ShiftRightLogical(value, 31)),
+                34 => Avx2.Or(
+                                        Avx2.ShiftLeftLogical(value, 34),
+                                        Avx2.ShiftRightLogical(value, 30)),
+                36 => Avx2.Or(
+                                        Avx2.ShiftLeftLogical(value, 36),
+                                        Avx2.ShiftRightLogical(value, 28)),
+                37 => Avx2.Or(
+                                        Avx2.ShiftLeftLogical(value, 37),
+                                        Avx2.ShiftRightLogical(value, 27)),
+                39 => Avx2.Or(
+                                        Avx2.ShiftLeftLogical(value, 39),
+                                        Avx2.ShiftRightLogical(value, 25)),
+                42 => Avx2.Or(
+                                        Avx2.ShiftLeftLogical(value, 42),
+                                        Avx2.ShiftRightLogical(value, 22)),
+                44 => Avx2.Or(
+                                        Avx2.ShiftLeftLogical(value, 44),
+                                        Avx2.ShiftRightLogical(value, 20)),
+                46 => Avx2.Or(
+                                        Avx2.ShiftLeftLogical(value, 46),
+                                        Avx2.ShiftRightLogical(value, 18)),
+                49 => Avx2.Or(
+                                        Avx2.ShiftLeftLogical(value, 49),
+                                        Avx2.ShiftRightLogical(value, 15)),
+                56 => Avx2.Or(
+                                        Avx2.ShiftLeftLogical(value, 56),
+                                        Avx2.ShiftRightLogical(value, 8)),
+                _ => VectorRotateLeft64(value, rotation),// Generic case falls back to the existing implementation
+            };
         }
 
         /// <summary>
@@ -1105,68 +1092,52 @@ namespace Scuttle.Encrypt.Strategies.ThreeFish
         private static Vector256<ulong> VectorRotateRightSpecialized(Vector256<ulong> value, int rotation)
         {
             // Use hardcoded rotation values for common cases
-            switch ( rotation )
+            return rotation switch
             {
-                case 14:
-                    return Avx2.Or(
-                        Avx2.ShiftRightLogical(value, 14),
-                        Avx2.ShiftLeftLogical(value, 50));
-                case 17:
-                    return Avx2.Or(
-                        Avx2.ShiftRightLogical(value, 17),
-                        Avx2.ShiftLeftLogical(value, 47));
-                case 19:
-                    return Avx2.Or(
-                        Avx2.ShiftRightLogical(value, 19),
-                        Avx2.ShiftLeftLogical(value, 45));
-                case 27:
-                    return Avx2.Or(
-                        Avx2.ShiftRightLogical(value, 27),
-                        Avx2.ShiftLeftLogical(value, 37));
-                case 33:
-                    return Avx2.Or(
-                        Avx2.ShiftRightLogical(value, 33),
-                        Avx2.ShiftLeftLogical(value, 31));
-                case 34:
-                    return Avx2.Or(
-                        Avx2.ShiftRightLogical(value, 34),
-                        Avx2.ShiftLeftLogical(value, 30));
-                case 36:
-                    return Avx2.Or(
-                        Avx2.ShiftRightLogical(value, 36),
-                        Avx2.ShiftLeftLogical(value, 28));
-                case 37:
-                    return Avx2.Or(
-                        Avx2.ShiftRightLogical(value, 37),
-                        Avx2.ShiftLeftLogical(value, 27));
-                case 39:
-                    return Avx2.Or(
-                        Avx2.ShiftRightLogical(value, 39),
-                        Avx2.ShiftLeftLogical(value, 25));
-                case 42:
-                    return Avx2.Or(
-                        Avx2.ShiftRightLogical(value, 42),
-                        Avx2.ShiftLeftLogical(value, 22));
-                case 44:
-                    return Avx2.Or(
-                        Avx2.ShiftRightLogical(value, 44),
-                        Avx2.ShiftLeftLogical(value, 20));
-                case 46:
-                    return Avx2.Or(
-                        Avx2.ShiftRightLogical(value, 46),
-                        Avx2.ShiftLeftLogical(value, 18));
-                case 49:
-                    return Avx2.Or(
-                        Avx2.ShiftRightLogical(value, 49),
-                        Avx2.ShiftLeftLogical(value, 15));
-                case 56:
-                    return Avx2.Or(
-                        Avx2.ShiftRightLogical(value, 56),
-                        Avx2.ShiftLeftLogical(value, 8));
-                default:
-                    // Generic case falls back to the existing implementation
-                    return VectorRotateRight64(value, rotation);
-            }
+                14 => Avx2.Or(
+                                        Avx2.ShiftRightLogical(value, 14),
+                                        Avx2.ShiftLeftLogical(value, 50)),
+                17 => Avx2.Or(
+                                        Avx2.ShiftRightLogical(value, 17),
+                                        Avx2.ShiftLeftLogical(value, 47)),
+                19 => Avx2.Or(
+                                        Avx2.ShiftRightLogical(value, 19),
+                                        Avx2.ShiftLeftLogical(value, 45)),
+                27 => Avx2.Or(
+                                        Avx2.ShiftRightLogical(value, 27),
+                                        Avx2.ShiftLeftLogical(value, 37)),
+                33 => Avx2.Or(
+                                        Avx2.ShiftRightLogical(value, 33),
+                                        Avx2.ShiftLeftLogical(value, 31)),
+                34 => Avx2.Or(
+                                        Avx2.ShiftRightLogical(value, 34),
+                                        Avx2.ShiftLeftLogical(value, 30)),
+                36 => Avx2.Or(
+                                        Avx2.ShiftRightLogical(value, 36),
+                                        Avx2.ShiftLeftLogical(value, 28)),
+                37 => Avx2.Or(
+                                        Avx2.ShiftRightLogical(value, 37),
+                                        Avx2.ShiftLeftLogical(value, 27)),
+                39 => Avx2.Or(
+                                        Avx2.ShiftRightLogical(value, 39),
+                                        Avx2.ShiftLeftLogical(value, 25)),
+                42 => Avx2.Or(
+                                        Avx2.ShiftRightLogical(value, 42),
+                                        Avx2.ShiftLeftLogical(value, 22)),
+                44 => Avx2.Or(
+                                        Avx2.ShiftRightLogical(value, 44),
+                                        Avx2.ShiftLeftLogical(value, 20)),
+                46 => Avx2.Or(
+                                        Avx2.ShiftRightLogical(value, 46),
+                                        Avx2.ShiftLeftLogical(value, 18)),
+                49 => Avx2.Or(
+                                        Avx2.ShiftRightLogical(value, 49),
+                                        Avx2.ShiftLeftLogical(value, 15)),
+                56 => Avx2.Or(
+                                        Avx2.ShiftRightLogical(value, 56),
+                                        Avx2.ShiftLeftLogical(value, 8)),
+                _ => VectorRotateRight64(value, rotation),// Generic case falls back to the existing implementation
+            };
         }
 
         /// <summary>

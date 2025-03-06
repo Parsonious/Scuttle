@@ -71,7 +71,7 @@ namespace Scuttle.Configuration
             => _algorithms.Values;
 
         public IReadOnlyCollection<AlgorithmMetadata> GetModernAlgorithms()
-            => _algorithms.Values.Where(a => !a.IsLegacy).ToList();
+            => [.. _algorithms.Values.Where(a => !a.IsLegacy)];
 
         public IEncryption CreateAlgorithm(string name, IEncoder? encoder = null)
             => _factory.Create(name, encoder);
