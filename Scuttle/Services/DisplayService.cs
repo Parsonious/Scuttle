@@ -401,12 +401,30 @@ namespace Scuttle.Services
         }
         public string PromptForOutputPath(string inputPath, string defaultExtension)
         {
-            string path = PromptForFreeFormUserInput("Enter the path for the output file ( or press Enter for default ):");
-            if ( string.IsNullOrEmpty(path) )
+            // First try to find a default output path
+            string inputFileName = Path.GetFileNameWithoutExtension(inputPath);
+            string directory = Path.GetDirectoryName(inputPath) ?? string.Empty;
+            string defaultPath;
+
+            // Check if the filename without extension contains another extension
+            // This would happen if the file was named like "document.pdf.enc"
+            if ( Path.HasExtension(inputFileName) )
             {
-                return Path.ChangeExtension(inputPath, defaultExtension);
+                // There's an embedded extension - use that
+                string baseName = Path.GetFileNameWithoutExtension(inputFileName);
+                string embeddedExt = Path.GetExtension(inputFileName);
+                defaultPath = Path.Combine(directory, baseName + embeddedExt);
             }
-            return path;
+            else
+            {
+                // No embedded extension - use the provided default
+                defaultPath = Path.Combine(directory, inputFileName + defaultExtension);
+            }
+
+            Console.WriteLine($"\nEnter the path for the output file (or press Enter for default: {defaultPath}):");
+            string? output = Console.ReadLine()?.Trim();
+
+            return string.IsNullOrEmpty(output) ? defaultPath : output;
         }
         private static bool IsUrlSafe(string input)
             => Uri.EscapeDataString(input) == input;

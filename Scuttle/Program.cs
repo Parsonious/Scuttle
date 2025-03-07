@@ -291,11 +291,26 @@ class Program
                 }
                 else
                 {
-                    // For decryption, strip the encryption extension
-                    string originalExt = Path.GetExtension(options.InputFile);
-                    string baseExt = Path.GetExtension(Path.GetFileNameWithoutExtension(options.InputFile));
-                    string defaultExt = !string.IsNullOrEmpty(baseExt) ? baseExt : ".decrypted";
-                    options.OutputFile = _displayService.PromptForOutputPath(options.InputFile, defaultExt);
+                    // For decryption, try to extract a sensible extension
+                    string inputFileName = Path.GetFileNameWithoutExtension(options.InputFile);
+                    string directory = Path.GetDirectoryName(options.InputFile) ?? string.Empty;
+                    string defaultExt;
+
+                    // Check if the filename without extension contains another extension
+                    // This would happen if the file was named like "document.pdf.enc"
+                    if ( Path.HasExtension(inputFileName) )
+                    {
+                        // Use the embedded extension as our output format and avoid duplication
+                        options.OutputFile = Path.Combine(directory,
+                            Path.GetFileNameWithoutExtension(inputFileName) +
+                            Path.GetExtension(inputFileName));
+                    }
+                    else
+                    {
+                        // No embedded extension, so use a generic one
+                        defaultExt = ".decrypted";
+                        options.OutputFile = _displayService.PromptForOutputPath(options.InputFile, defaultExt);
+                    }
                 }
             }
 
