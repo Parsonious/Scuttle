@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿using System.IO;
+using System.Text;
+using Scuttle.Interfaces;
 using Scuttle.Models;
 
 
@@ -8,10 +10,12 @@ namespace Scuttle.Services
     {
         private readonly ConfigurationService _configService;
         private readonly string _appVersion;
+        private readonly FileEncryptionService _fileEncryptionService;
 
-        public DisplayService(ConfigurationService configService)
+        public DisplayService(ConfigurationService configService, FileEncryptionService fileEncryptionService)
         {
             _configService = configService;
+            _fileEncryptionService = fileEncryptionService;
             _appVersion = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0";
         }
 
@@ -22,11 +26,7 @@ namespace Scuttle.Services
 
         public static string SelectOperationMode()
         {
-            string[] options =
-            [
-                "Encrypt (Create new token)",
-                "Decrypt (Read existing token)"
-            ];
+            string[] options = ["Encrypt (Create new token)", "Decrypt (Read existing token)"];
 
             int selected = GetMenuSelection(options, "Select operation mode:");
 
@@ -289,11 +289,124 @@ namespace Scuttle.Services
             Console.CursorVisible = true;
             return currentSelection;
         }
+        public static void DisplayEncryptionResults(string outputFilePath, byte[] key, bool keyWasSaved, string? keyFilePath)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("\nFile encrypted successfully!");
+            Console.ResetColor();
+
+            Console.WriteLine($"Output file: {outputFilePath}");
+
+            // Display the key in Base64 format
+            string keyBase64 = Convert.ToBase64String(key);
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("\nEncryption key (Base64):");
+            Console.ResetColor();
+
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine(keyBase64);
+            Console.ResetColor();
+
+            if ( keyWasSaved && !string.IsNullOrEmpty(keyFilePath) )
+            {
+                Console.WriteLine($"Key saved to: {keyFilePath}");
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("IMPORTANT: Save this key in a secure location. You will need it to decrypt your file.");
+                Console.ResetColor();
+            }
+        }
+
+        public static void DisplayDecryptionResults(bool success, string outputFilePath)
+        {
+            if ( success )
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("\nFile decrypted successfully!");
+                Console.ResetColor();
+                Console.WriteLine($"Output file: {outputFilePath}");
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("\nDecryption failed. The key may be incorrect or the file may be corrupted.");
+                Console.ResetColor();
+            }
+        }
+        /*Start Prompts*/
+
+        /// <summary>
+        /// Prompts the user with a yes/no question and returns the result.
+        /// </summary>
+        /// <param name="promptText"></param>
+        /// <returns></returns>
         public static bool YesNoPrompt(string promptText = "Would you like to perform another operation?")
         {
             string[] options = ["Yes", "No"];
             int selected = GetMenuSelection(options, promptText);
-            return selected == 0; // Yes is index 0
+            return selected == 0; // Yes
+        }
+        public static string PromptForFreeFormUserInput(string promptText="Please enter your response:", bool isError = false)
+        {
+            if ( !isError )
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.Write(promptText);
+                Console.ResetColor();
+                return Console.ReadLine() ?? string.Empty;
+            }
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.Write(promptText);
+            Console.ResetColor();
+            return Console.ReadLine() ?? string.Empty;
+        }
+        public byte[] PromptForDecryptionKey( string promptText = "Select a key provision option:")
+        {
+            ///TODO: add config pull for the key input options
+           int keyOption = GetMenuSelection(["Enter key manually", "Load key from file"], promptText);
+            if ( keyOption == 1 ) // Load from file
+            {
+                string keyPath = PromptForFreeFormUserInput("\nEnter the path to the key file:");
+                return _fileEncryptionService.LoadKeyFromFile(keyPath);
+            }
+            else // Enter as text
+            {
+                string keyText = PromptForFreeFormUserInput("\nEnter the decryption key (Base64):");
+
+                while ( string.IsNullOrEmpty(keyText) )
+                {
+                    keyText = PromptForFreeFormUserInput("Key cannot be empty. Please enter a valid key:", true);
+                }
+
+                try
+                {
+                    return Convert.FromBase64String(keyText);
+                }
+                catch ( FormatException )
+                {
+                    throw new ArgumentException("The provided key is not valid Base64.");
+                }
+            }
+        }
+        public string PromptForFilePath(string prompt)
+        {
+            string filePath = PromptForFreeFormUserInput(prompt);
+            while ( string.IsNullOrEmpty(filePath) || !File.Exists(filePath) )
+            {
+                filePath = PromptForFreeFormUserInput("File path cannot be empty. Please enter a valid path:", true);
+            }
+            return filePath;
+        }
+        public string PromptForOutputPath(string inputPath, string defaultExtension)
+        {
+            string path = PromptForFreeFormUserInput("Enter the path for the output file ( or press Enter for default ):");
+            if ( string.IsNullOrEmpty(path) )
+            {
+                return Path.ChangeExtension(inputPath, defaultExtension);
+            }
+            return path;
         }
         private static bool IsUrlSafe(string input)
             => Uri.EscapeDataString(input) == input;

@@ -12,5 +12,19 @@ namespace Scuttle.Encoders
 
         public byte[] Decode(string encodedData)
             => Base65536.Decode(encodedData);
+        /// <summary>
+        /// Placeholder Method
+        /// Checks if the string is a valid Base65536 format
+        /// </summary>
+        public bool IsValidFormat(string data)
+        {
+            if ( string.IsNullOrEmpty(data) )
+                return false;
+
+            // Base65536 uses a specific set of Unicode code points
+            // This is a simplified validation - ideally we would check against
+            // the actual valid Base65536 code points, but for simplicity:
+            return data.All(c => c > 128); // Base65536 uses characters outside ASCII range
+        }
     }
 }

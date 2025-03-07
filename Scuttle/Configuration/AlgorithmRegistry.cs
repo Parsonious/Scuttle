@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Scuttle.Factories;
-using Scuttle.Interfaces;
+﻿using Scuttle.Interfaces;
 using Scuttle.Models;
 
 namespace Scuttle.Configuration

@@ -1,12 +1,20 @@
 ﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Security.Cryptography;
+
+using Scuttle.Encoders;
 using Scuttle.Models;
 using Scuttle.Services;
 using Scuttle.Models.Art;
 using Scuttle.Interfaces;
+using Scuttle.Models.Configuration;
+using Scuttle.Configuration;
 
 class Program
 {
@@ -16,68 +24,105 @@ class Program
     private readonly DisplayService _displayService;
     private readonly ILogger<Program> _logger;
     private readonly ArgumentParser _parser;
-    private readonly OutputFormatter _formatter;
-    private readonly Util _utilities;
     private readonly FileEncryptionService _fileEncryptionService;
-
+    private readonly AlgorithmRegistry _algorithmRegistry;
+    private readonly EncryptionFactory _encryptionFactory;
 
     public Program(
-    IConfiguration configuration,
-    ILogger<Program> logger,
-    ArgumentParser parser,
-    OutputFormatter formatter,
-    Util utilities,
-    FileEncryptionService fileEncryptionService)  
+        ConfigurationService configService,
+        EncryptionService encryptionService,
+        FileService fileService,
+        DisplayService displayService,
+        ILogger<Program> logger,
+        ArgumentParser parser,
+        FileEncryptionService fileEncryptionService,
+        AlgorithmRegistry algorithmRegistry,
+        EncryptionFactory encryptionFactory)
     {
-        _configService = new ConfigurationService(configuration);
-        _encryptionService = new EncryptionService(_configService);
-        _displayService = new DisplayService(_configService);
-        _fileService = new FileService(_displayService);
-        _fileEncryptionService = fileEncryptionService;
+        _configService = configService;
+        _encryptionService = encryptionService;
+        _fileService = fileService;
+        _displayService = displayService;
         _logger = logger;
         _parser = parser;
-        _formatter = formatter;
-        _utilities = utilities;
+        _fileEncryptionService = fileEncryptionService;
+        _algorithmRegistry = algorithmRegistry;
+        _encryptionFactory = encryptionFactory;
     }
 
     public static async Task Main(string[] args)
     {
-        // Setup configuration
-        var config = new ConfigurationBuilder()
-            .SetBasePath(AppContext.BaseDirectory)
-            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-            .Build();
-
-        // Setup logging with configuration
-        using var loggerFactory = LoggerFactory.Create(builder =>
-        {
-            builder
-                .AddConfiguration(config.GetSection("Logging")) 
-                .AddFilter("Microsoft", LogLevel.Warning)
-                .AddFilter("System", LogLevel.Warning)
-                .AddFilter("Scuttle", LogLevel.Information)
-                .AddConsole();
-        });
-
-        var logger = loggerFactory.CreateLogger<Program>();
-        var parserLogger = loggerFactory.CreateLogger<ArgumentParser>();
-        var fileEncryptionLogger = loggerFactory.CreateLogger<FileEncryptionService>(); 
-        var parser = new ArgumentParser(config, parserLogger);
-        var formatter = new OutputFormatter();
-        var utilities = new Util();
-        var fileEncryptionService = new FileEncryptionService(fileEncryptionLogger);
-
         try
         {
-            var program = new Program(config, logger, parser, formatter, utilities, fileEncryptionService);
+            using var host = CreateHostBuilder(args).Build();
+
+            // Get the Program instance from the DI container
+            var program = host.Services.GetRequiredService<Program>();
             await program.RunAsync(args);
         }
         catch ( Exception ex )
         {
-            logger.LogError(ex, "Application failed");
+            Console.Error.WriteLine($"Fatal error: {ex.Message}");
             Environment.Exit(1);
         }
     }
+
+    private static IHostBuilder CreateHostBuilder(string[] args) =>
+        Host.CreateDefaultBuilder(args)
+            .ConfigureAppConfiguration((hostContext, config) =>
+            {
+                config.SetBasePath(AppContext.BaseDirectory);
+                config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+                config.AddEnvironmentVariables("SCUTTLE_");
+                config.AddCommandLine(args);
+            })
+            .ConfigureLogging((hostContext, logging) =>
+            {
+                logging.ClearProviders();
+                logging.AddConfiguration(hostContext.Configuration.GetSection("Logging"));
+                logging.AddFilter("Microsoft", LogLevel.Warning);
+                logging.AddFilter("System", LogLevel.Warning);
+                logging.AddFilter("Scuttle", LogLevel.Information);
+                logging.AddConsole();
+            })
+            .ConfigureServices((hostContext, services) =>
+            {
+                // Register configurations
+                services.Configure<EncryptionConfig>(hostContext.Configuration.GetSection("Encryption"));
+                services.Configure<EncoderConfig>(hostContext.Configuration.GetSection("Encoders"));
+                services.Configure<AlgorithmConfig>(hostContext.Configuration.GetSection("Algorithms"));
+
+                //Register Configurations
+                services.AddSingleton(hostContext.Configuration.GetSection("Encryption").Get<EncryptionConfig>() ?? new EncryptionConfig());
+                services.AddSingleton(hostContext.Configuration.GetSection("Encoders").Get<EncoderConfig>() ?? new EncoderConfig());
+                services.AddSingleton(hostContext.Configuration.GetSection("Algorithms").Get<AlgorithmConfig>() ?? new AlgorithmConfig());
+
+                // Register core services
+                services.AddSingleton<ConfigurationService>();
+                services.AddSingleton<EncryptionFactory>();
+                services.AddSingleton<AlgorithmRegistry>();
+                services.AddSingleton<PaddingService>();
+                services.AddSingleton<ArgumentParser>();
+                services.AddSingleton<EncryptionService>();
+                services.AddSingleton<DisplayService>();
+                services.AddSingleton<FileEncryptionService>();
+                services.AddSingleton<FileService>();
+
+                services.AddSingleton<IEncoder>(provider => {
+                    var config = provider.GetRequiredService<EncryptionConfig>() ?? new EncryptionConfig { DefaultEncoder = "base64" };
+                    return config.DefaultEncoder?.ToLower() switch
+                    {
+                        "base85" => new Base85Encoder(),
+                        "base65536" => new Base65536Encoder(),
+                        _ => new Base64Encoder(),
+                    };
+                });
+                //Transients
+                services.AddTransient<Util>();
+                
+                // Register the main application class
+                services.AddSingleton<Program>();
+            });
 
     private async Task RunAsync(string[] args)
     {
@@ -91,7 +136,7 @@ class Program
                 return;
             }
 
-            // Handle special commands first
+            // Handle special commands first - using early returns to avoid nesting
             if ( options.ShowVersion )
             {
                 ShowVersion();
@@ -185,6 +230,14 @@ class Program
     {
         try
         {
+            // First check if this is a file operation
+            if ( options.InputType == "file" || !string.IsNullOrEmpty(options.InputFile) )
+            {
+                await ProcessFileOperation(options);
+                return;
+            }
+
+            // Handle text-based operations
             switch ( options.Mode?.ToLower() )
             {
                 case "encrypt":
@@ -206,38 +259,151 @@ class Program
             }
         }
     }
+    /// <summary>
+    /// Process file encryption or decryption operations
+    /// </summary>
+    private async Task ProcessFileOperation(CliOptions options)
+    {
+        try
+        {
+            // Check if we have the required paths
+            if ( string.IsNullOrEmpty(options.InputFile) )
+            {
+                options.InputFile = _displayService.PromptForFilePath("Enter the path to the input file:");
+            }
 
+            if ( string.IsNullOrEmpty(options.OutputFile) )
+            {
+                string defaultExt = options.Mode?.ToLower() == "encrypt" ? ".encrypted" : ".decrypted";
+                options.OutputFile = _displayService.PromptForOutputPath(options.InputFile, defaultExt);
+            }
+
+            // Get algorithm and encoder if not specified
+            var algorithm = options.Algorithm != null
+                ? _configService.GetAlgorithmMetadata(options.Algorithm)
+                : _displayService.SelectEncryptionAlgorithm();
+
+            var encoderMetadata = options.Encoder != null
+                ? _configService.GetAllEncoders().First(e => e.Name == options.Encoder)
+                : _displayService.SelectEncodingMethod();
+
+            // Create encryption instance
+            var encoder = _configService.GetEncoder(encoderMetadata.Name);
+            var encryption = _algorithmRegistry.CreateAlgorithm(algorithm.Name, encoder);
+
+            // Process based on mode
+            if ( options.Mode?.ToLower() == "encrypt" )
+            {
+                await HandleFileEncryption(options, encryption);
+            }
+            else // Decrypt
+            {
+                await HandleFileDecryption(options, encryption);
+            }
+        }
+        catch ( Exception ex )
+        {
+            _logger.LogError(ex, "File operation failed");
+            if ( !options.Silent ) throw;
+        }
+    }
     private async Task ProcessBatchFile(string batchFile)
     {
         try
         {
+            _logger.LogInformation("Processing batch file: {FilePath}", batchFile);
+
+            string jsonContent = await File.ReadAllTextAsync(batchFile);
             var operations = JsonSerializer.Deserialize<List<BatchOperation>>(
-                await File.ReadAllTextAsync(batchFile)
+                jsonContent,
+                new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    ReadCommentHandling = JsonCommentHandling.Skip
+                }
             );
 
-            if ( operations == null )
+            if ( operations == null || operations.Count == 0 )
             {
-                throw new JsonException("Invalid batch file format");
+                _logger.LogWarning("Batch file contains no operations or has invalid format");
+                throw new JsonException("Invalid or empty batch file format");
             }
 
-            foreach ( var operation in operations )
+            int totalOperations = operations.Count;
+            int successful = 0;
+            int failed = 0;
+
+            _logger.LogInformation("Starting batch processing of {Count} operations", totalOperations);
+
+            for ( int i = 0; i < totalOperations; i++ )
             {
-                _logger.LogInformation("Processing batch operation: {Mode}", operation.Mode);
+                var operation = operations[i];
+                _logger.LogInformation("Processing batch operation {Current}/{Total}: {Mode} {Type}",
+                    i + 1, totalOperations,
+                    operation.Mode,
+                    !string.IsNullOrEmpty(operation.InputFile) ? "file" : "text");
+
                 var cliOptions = ConvertBatchOperationToCliOptions(operation);
 
                 try
                 {
                     await ProcessSingleOperation(cliOptions);
+                    successful++;
+                    _logger.LogInformation("Batch operation {Current}/{Total} completed successfully",
+                        i + 1, totalOperations);
                 }
                 catch ( Exception ex )
                 {
-                    _logger.LogError(ex, "Batch operation failed: {Mode}", operation.Mode);
+                    failed++;
+                    _logger.LogError(ex, "Batch operation {Current}/{Total} failed: {Mode}",
+                        i + 1, totalOperations, operation.Mode);
+
                     if ( !cliOptions.Silent )
                     {
-                        throw;
+                        // Only rethrow if this is the only operation or if all have failed
+                        if ( totalOperations == 1 || (i == totalOperations - 1 && successful == 0) )
+                        {
+                            throw;
+                        }
+
+                        // Otherwise continue with the next operation
+                        Console.WriteLine($"Operation {i + 1} failed: {ex.Message}");
+                        Console.WriteLine("Continuing with next operation...");
                     }
                 }
             }
+
+            // Final summary
+            _logger.LogInformation("Batch processing completed. Summary: {Successful} successful, {Failed} failed out of {Total} operations",
+                successful, failed, totalOperations);
+
+            if ( !operations[0].Silent && totalOperations > 1 )
+            {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"\nBatch processing summary:");
+                Console.ResetColor();
+                Console.WriteLine($"- Total operations: {totalOperations}");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"- Successful: {successful}");
+                Console.ResetColor();
+
+                if ( failed > 0 )
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"- Failed: {failed}");
+                    Console.ResetColor();
+                }
+            }
+        }
+        catch ( FileNotFoundException )
+        {
+            _logger.LogError("Batch file not found: {FilePath}", batchFile);
+            throw;
+        }
+        catch ( JsonException ex )
+        {
+            _logger.LogError(ex, "Invalid batch file format: {FilePath}", batchFile);
+            throw new JsonException($"Invalid batch file format: {ex.Message}", ex);
         }
         catch ( Exception ex )
         {
@@ -246,23 +412,122 @@ class Program
         }
     }
 
+
     private static CliOptions ConvertBatchOperationToCliOptions(BatchOperation operation)
     {
         return new CliOptions
         {
+            // Basic operation parameters
             Mode = operation.Mode,
             Algorithm = operation.Algorithm,
             Encoder = operation.Encoder,
+
+            // Text-based encryption/decryption parameters
             Title = operation.Title,
             Instructions = operation.Instructions,
             Token = operation.Token,
             Key = operation.Key,
+
+            // File operation parameters
+            InputFile = operation.InputFile,
             OutputFile = operation.OutputFile,
-            Silent = false, 
-            IsInteractiveMode = false  
+            SaveKeyToFile = operation.SaveKeyToFile,
+            KeyFile = operation.KeyFile,
+
+            // Set input type based on whether we have an input file
+            InputType = !string.IsNullOrEmpty(operation.InputFile) ? "file" : "text",
+
+            // Other options
+            Silent = operation.Silent,
+            IsInteractiveMode = false
         };
     }
+    private async Task HandleFileEncryption(CliOptions options, IEncryption encryption)
+    {
+        // Key preparation
+        byte[]? key = null;
+        if ( !string.IsNullOrEmpty(options.Key) )
+        {
+            try
+            {
+                key = Convert.FromBase64String(options.Key);
+            }
+            catch ( FormatException )
+            {
+                throw new ArgumentException("The provided key is not valid Base64.");
+            }
+        }
 
+        // Handle key output
+        string? keyOutputPath = null;
+        if ( options.SaveKeyToFile )
+        {
+            keyOutputPath = options.KeyFile ?? Path.ChangeExtension(options.OutputFile, ".key");
+        }
+
+        // Encrypt the file with progress indicator
+        byte[] usedKey = await Util.ExecuteWithDelayedSpinner(() =>
+        {
+            return _fileEncryptionService.EncryptFileAsync(
+                options.InputFile!,
+                options.OutputFile!,
+                encryption,
+                key,
+                keyOutputPath);
+        }, "Encrypting file...");
+
+        // Display results if not silent
+        if ( !options.Silent )
+        {
+            DisplayService.DisplayEncryptionResults(options.OutputFile!, usedKey, options.SaveKeyToFile, keyOutputPath);
+        }
+    }
+
+    private async Task HandleFileDecryption(CliOptions options, IEncryption encryption)
+    {
+        // Key preparation
+        byte[] key;
+        if ( !string.IsNullOrEmpty(options.Key) )
+        {
+            try
+            {
+                key = Convert.FromBase64String(options.Key);
+            }
+            catch ( FormatException )
+            {
+                throw new ArgumentException("The provided key is not valid Base64.");
+            }
+        }
+        else if ( !string.IsNullOrEmpty(options.KeyFile) )
+        {
+            key = await _fileEncryptionService.LoadKeyFromFileAsync(options.KeyFile);
+        }
+        else
+        {
+            key = _displayService.PromptForDecryptionKey();
+        }
+
+        // Decrypt the file with progress indicator
+        bool success = await Util.ExecuteWithDelayedSpinner(() =>
+        {
+            return _fileEncryptionService.DecryptFileAsync(
+                options.InputFile!,
+                options.OutputFile!,
+                encryption,
+                key);
+        }, "Decrypting file...");
+
+        // Display results if not silent
+        if ( !options.Silent )
+        {
+            DisplayService.DisplayDecryptionResults(success, options.OutputFile!);
+        }
+
+        if ( !success )
+        {
+            throw new CryptographicException("Decryption failed. The key may be incorrect or the file may be corrupted.");
+        }
+    }
     private async Task PerformEncryptionAsync(CliOptions options)
     {
 
