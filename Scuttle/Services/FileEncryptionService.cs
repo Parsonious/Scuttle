@@ -5,17 +5,19 @@ using Scuttle.Enums;
 using System.Buffers;
 using Scuttle.Base;
 using Scuttle.Encoders;
+using Scuttle.Detection;
 
 namespace Scuttle.Services
 {
     /// <summary>
     /// Service for handling file encryption and decryption operations
     /// </summary>
-    public class FileEncryptionService(ILogger<FileEncryptionService> logger, PaddingService paddingService, IEncoder encoder)
+    public class FileEncryptionService(ILogger<FileEncryptionService> logger, PaddingService paddingService, IEncoder encoder, AlgorithmIdentifier algorithmIdentifier)
     {
         private readonly PaddingService _paddingService = paddingService;
         private readonly ILogger<FileEncryptionService> _logger = logger;
         private readonly IEncoder _encoder = encoder;
+        private readonly AlgorithmIdentifier _algorithmIdentifier = algorithmIdentifier;
         private const int BufferSize = 81920; // 80KB buffer - optimized for modern file systems
         private const int LargeFileThreshold = 10 * 1024 * 1024; // 10MB - files larger than this will use streaming
         private static readonly int MaxDegreeOfParallelism = Environment.ProcessorCount;
@@ -254,44 +256,67 @@ namespace Scuttle.Services
 
         #region Private Helper Methods
 
-        private async Task ProcessSmallFileAsync(
-            string inputFilePath,
-            string outputFilePath,
-            IEncryption encryption,
-            byte[] key,
-            bool isEncrypting,
-            CancellationToken cancellationToken)
+        private async Task ProcessSmallFileAsync(string inputFilePath, string outputFilePath, IEncryption encryption, 
+                                                byte[] key, bool isEncrypting, CancellationToken cancellationToken)
         {
             _logger.LogInformation("{Operation} small file: {Path}",
                 isEncrypting ? "Encrypting" : "Decrypting", inputFilePath);
 
-            // Read the entire file
-            byte[] fileData = await File.ReadAllBytesAsync(inputFilePath, cancellationToken);
+            if ( isEncrypting )
+            {
+                // Read the entire file
+                byte[] fileData = await File.ReadAllBytesAsync(inputFilePath, cancellationToken);
 
-            // Process the data
-            byte[] processedData = isEncrypting
-                ? encryption.Encrypt(fileData, key)
-                : encryption.Decrypt(fileData, key);
+                // Process the data
+                byte[] encryptedData = encryption.Encrypt(fileData, key);
 
-            // Write the result
-            await File.WriteAllBytesAsync(outputFilePath, processedData, cancellationToken);
+                // Create a header for the file
+                var header = new EncryptionHeader { AlgorithmId = GetAlgorithmId(encryption) };
+                byte[] headerBytes = header.ToByteArray();
+
+                // Combine header and encrypted data
+                byte[] outputData = new byte[headerBytes.Length + encryptedData.Length];
+                Buffer.BlockCopy(headerBytes, 0, outputData, 0, headerBytes.Length);
+                Buffer.BlockCopy(encryptedData, 0, outputData, headerBytes.Length, encryptedData.Length);
+
+                // Write the result
+                await File.WriteAllBytesAsync(outputFilePath, outputData, cancellationToken);
+            }
+            else
+            {
+                // Read the entire file
+                byte[] fileData = await File.ReadAllBytesAsync(inputFilePath, cancellationToken);
+
+                // Ensure the file is at least as large as the header
+                if ( fileData.Length < EncryptionHeader.HEADER_SIZE )
+                    throw new InvalidDataException("Invalid encrypted file format - file too small");
+
+                // Read the header
+                using var memStream = new MemoryStream(fileData);
+                var header = EncryptionHeader.Read(memStream);
+
+                // Get the encrypted data (everything after the header)
+                byte[] encryptedData = new byte[fileData.Length - EncryptionHeader.HEADER_SIZE];
+                Buffer.BlockCopy(fileData, EncryptionHeader.HEADER_SIZE, encryptedData, 0, encryptedData.Length);
+
+                // Process the data
+                byte[] decryptedData = encryption.Decrypt(encryptedData, key);
+
+                // Write the result
+                await File.WriteAllBytesAsync(outputFilePath, decryptedData, cancellationToken);
+            }
 
             _logger.LogInformation("{Operation} completed: {Path}",
                 isEncrypting ? "Encryption" : "Decryption", outputFilePath);
         }
 
-        private async Task ProcessLargeFileAsync(
-            string inputFilePath,
-            string outputFilePath,
-            IEncryption encryption,
-            byte[] key,
-            bool isEncrypting,
-            CancellationToken cancellationToken)
+        private async Task ProcessLargeFileAsync(string inputFilePath,string outputFilePath,IEncryption encryption,
+                                                 byte[] key,bool isEncrypting,CancellationToken cancellationToken)
         {
             _logger.LogInformation("{Operation} large file using streaming: {Path}",
                 isEncrypting ? "Encrypting" : "Decrypting", inputFilePath);
 
-            // Get file size for progress reporting
+            // Get file info for progress reporting
             var fileInfo = new FileInfo(inputFilePath);
             long fileSize = fileInfo.Length;
             long processedBytes = 0;
@@ -299,16 +324,42 @@ namespace Scuttle.Services
             // Create directory if it doesn't exist
             Directory.CreateDirectory(Path.GetDirectoryName(outputFilePath) ?? string.Empty);
 
-            // Process the file in chunks
             using var inputStream = new FileStream(inputFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize, FileOptions.SequentialScan);
             using var outputStream = new FileStream(outputFilePath, FileMode.Create, FileAccess.Write, FileShare.None, BufferSize, FileOptions.SequentialScan);
+
+            // If encrypting, write the header first
+            if ( isEncrypting )
+            {
+                var header = new EncryptionHeader { AlgorithmId = GetAlgorithmId(encryption) };
+                byte[] headerBytes = header.ToByteArray();
+                await outputStream.WriteAsync(headerBytes, 0, headerBytes.Length, cancellationToken);
+            }
+            else
+            {
+                // If decrypting, read and validate the header
+                try
+                {
+                    var header = EncryptionHeader.Read(inputStream);
+                    _logger.LogInformation("Decrypting file with algorithm ID: {AlgorithmId}", header.AlgorithmId);
+
+                    // Skip the header in the input file
+                    // We've already read it by calling EncryptionHeader.Read
+                }
+                catch ( InvalidDataException ex )
+                {
+                    _logger.LogWarning(ex, "Could not read valid encryption header. File may be corrupted or encrypted with an older version.");
+                    // Reset the stream position to start decrypting from the beginning
+                    inputStream.Position = 0;
+                }
+            }
 
             // Determine optimal chunk size based on file size
             int chunkSize = DetermineOptimalChunkSize(fileSize);
 
             // Create a list to store tasks for parallel processing
             var tasks = new List<Task<(long offset, byte[] data)>>();
-            long currentOffset = 0;
+            long currentOffset = isEncrypting ? 0 : EncryptionHeader.HEADER_SIZE;
+            long outputOffset = 0;  // For decryption, we write from the beginning of the output file
 
             while ( currentOffset < fileSize )
             {
@@ -317,6 +368,7 @@ namespace Scuttle.Services
 
                 // Read chunk
                 byte[] buffer = new byte[currentChunkSize];
+                inputStream.Position = currentOffset;
                 int bytesRead = await inputStream.ReadAsync(buffer, 0, currentChunkSize, cancellationToken);
 
                 if ( bytesRead <= 0 ) break;
@@ -328,7 +380,7 @@ namespace Scuttle.Services
                 }
 
                 // Create a task for processing this chunk
-                long chunkOffset = currentOffset;
+                long chunkOffset = isEncrypting ? currentOffset : outputOffset;
                 tasks.Add(Task.Run(() =>
                 {
                     byte[] processedChunk = isEncrypting
@@ -340,6 +392,7 @@ namespace Scuttle.Services
                 // Update progress
                 processedBytes += bytesRead;
                 currentOffset += bytesRead;
+                outputOffset += bytesRead;  // This will be adjusted when we know the actual size after encryption/decryption
 
                 // Limit parallel tasks to prevent excessive memory usage
                 if ( tasks.Count >= MaxDegreeOfParallelism || currentOffset >= fileSize )
@@ -371,6 +424,7 @@ namespace Scuttle.Services
             _logger.LogInformation("{Operation} completed: {Path}",
                 isEncrypting ? "Encryption" : "Decryption", outputFilePath);
         }
+
 
         private async Task SaveKeyToFileAsync(byte[] key, string keyOutputPath, CancellationToken cancellationToken)
         {
@@ -475,12 +529,12 @@ namespace Scuttle.Services
         /// of the file without loading the entire file into memory.
         /// </remarks>
         private async Task ProcessVeryLargeFileAsync(
-            string inputFilePath,
-            string outputFilePath,
-            IEncryption encryption,
-            byte[] key,
-            bool isEncrypting,
-            CancellationToken cancellationToken)
+     string inputFilePath,
+     string outputFilePath,
+     IEncryption encryption,
+     byte[] key,
+     bool isEncrypting,
+     CancellationToken cancellationToken)
         {
             _logger.LogInformation("{Operation} very large file using memory mapping: {Path}",
                 isEncrypting ? "Encrypting" : "Decrypting", inputFilePath);
@@ -488,35 +542,59 @@ namespace Scuttle.Services
             // Ensure output directory exists
             Directory.CreateDirectory(Path.GetDirectoryName(outputFilePath) ?? string.Empty);
 
-            // Calculate segment size - we want to process the file in manageable segments
-            // Memory mapped files allow us to work with parts of files without loading them entirely
-            const long segmentSize = 64 * 1024 * 1024; // 64MB segments
-            var fileInfo = new FileInfo(inputFilePath);
-            long fileSize = fileInfo.Length;
-            int segmentCount = (int) Math.Ceiling((double) fileSize / segmentSize);
+            // Handle headers for very large files
+            EncryptionHeader? header = null;
+            long headerSize = 0;
+            long inputFileStartOffset = 0;
 
-            // Process each segment in parallel, but limit concurrency
-            var options = new ParallelOptions
-            {
-                MaxDegreeOfParallelism = Math.Min(MaxDegreeOfParallelism, segmentCount),
-                CancellationToken = cancellationToken
-            };
-
-            // Pre-allocate the output file to its full size if we're encrypting
-            // For decryption, we don't know the final size in advance (could be different due to padding)
             if ( isEncrypting )
             {
-                // For encryption, we can estimate output size based on input size plus padding
-                long estimatedOutputSize = fileSize + (segmentCount * 32); // Each segment might add up to 32 bytes of padding
-                using ( var fs = new FileStream(outputFilePath, FileMode.Create, FileAccess.Write, FileShare.None) )
+                // For encryption, create a header
+                header = new EncryptionHeader { AlgorithmId = GetAlgorithmId(encryption) };
+                headerSize = EncryptionHeader.HEADER_SIZE;
+
+                // Write the header to the beginning of the output file
+                using ( var fs = new FileStream(outputFilePath, FileMode.Create, FileAccess.Write) )
                 {
-                    fs.SetLength(estimatedOutputSize);
+                    byte[] headerBytes = header.ToByteArray();
+                    await fs.WriteAsync(headerBytes, 0, headerBytes.Length, cancellationToken);
                 }
             }
             else
             {
-                // For decryption, just create the file
-                File.Create(outputFilePath).Dispose();
+                // For decryption, try to read header from input file
+                try
+                {
+                    using var fileStream = new FileStream(inputFilePath, FileMode.Open, FileAccess.Read);
+                    header = EncryptionHeader.Read(fileStream);
+                    headerSize = EncryptionHeader.HEADER_SIZE;
+                    inputFileStartOffset = EncryptionHeader.HEADER_SIZE; // Skip header when reading input
+                    _logger.LogInformation("Decrypting very large file with algorithm ID: {AlgorithmId}", header.AlgorithmId);
+                }
+                catch ( InvalidDataException ex )
+                {
+                    _logger.LogWarning(ex, "Could not read valid encryption header. File may be corrupted or encrypted with an older version.");
+                    headerSize = 0;  // No header to skip
+                    inputFileStartOffset = 0;
+                }
+            }
+
+            // Calculate segment size - we want to process the file in manageable segments
+            const long segmentSize = 64 * 1024 * 1024; // 64MB segments
+            var fileInfo = new FileInfo(inputFilePath);
+            long fileSize = fileInfo.Length - inputFileStartOffset;  // Account for header size
+            int segmentCount = (int) Math.Ceiling((double) fileSize / segmentSize);
+
+            // Pre-allocate the output file if we're encrypting (we already wrote the header)
+            // For decryption, we don't know the final size in advance
+            if ( isEncrypting )
+            {
+                // For encryption, we can estimate output size based on input size plus padding
+                long estimatedOutputSize = headerSize + fileSize + (segmentCount * 32); // Add header size + padding
+                using ( var fs = new FileStream(outputFilePath, FileMode.Open, FileAccess.Write) )
+                {
+                    fs.SetLength(estimatedOutputSize);
+                }
             }
 
             // Create a semaphore to limit concurrent file access
@@ -528,8 +606,9 @@ namespace Scuttle.Services
             for ( int i = 0; i < segmentCount; i++ )
             {
                 int segmentIndex = i;
-                long offset = segmentIndex * segmentSize;
-                long currentSegmentSize = Math.Min(segmentSize, fileSize - offset);
+                long inputOffset = inputFileStartOffset + (segmentIndex * segmentSize);
+                long outputOffset = isEncrypting ? headerSize + (segmentIndex * segmentSize) : segmentIndex * segmentSize;
+                long currentSegmentSize = Math.Min(segmentSize, fileSize - (segmentIndex * segmentSize));
 
                 // Use a semaphore to control concurrency
                 await semaphore.WaitAsync(cancellationToken);
@@ -540,7 +619,7 @@ namespace Scuttle.Services
                     {
                         await ProcessFileSegmentAsync(
                             inputFilePath, outputFilePath, encryption, key,
-                            isEncrypting, offset, currentSegmentSize, cancellationToken);
+                            isEncrypting, inputOffset, outputOffset, currentSegmentSize, cancellationToken);
                     }
                     finally
                     {
@@ -564,20 +643,21 @@ namespace Scuttle.Services
         }
 
         private async Task ProcessFileSegmentAsync(
-            string inputFilePath,
-            string outputFilePath,
-            IEncryption encryption,
-            byte[] key,
-            bool isEncrypting,
-            long offset,
-            long length,
-            CancellationToken cancellationToken)
+     string inputFilePath,
+     string outputFilePath,
+     IEncryption encryption,
+     byte[] key,
+     bool isEncrypting,
+     long inputOffset,
+     long outputOffset,
+     long length,
+     CancellationToken cancellationToken)
         {
             // Read the segment from the input file
             byte[] segmentData;
             using ( var fileStream = new FileStream(inputFilePath, FileMode.Open, FileAccess.Read, FileShare.Read) )
             {
-                fileStream.Position = offset;
+                fileStream.Position = inputOffset;
                 segmentData = new byte[length];
                 await fileStream.ReadAsync(segmentData, 0, (int) length, cancellationToken);
             }
@@ -590,10 +670,11 @@ namespace Scuttle.Services
             // Write the processed segment to the output file
             using ( var fileStream = new FileStream(outputFilePath, FileMode.Open, FileAccess.Write, FileShare.None) )
             {
-                fileStream.Position = offset;
+                fileStream.Position = outputOffset;
                 await fileStream.WriteAsync(processedData, 0, processedData.Length, cancellationToken);
             }
         }
+
 
         private async Task TrimPaddingFromOutputFileAsync(string filePath, IEncryption encryption, CancellationToken cancellationToken = default)
         {
@@ -674,7 +755,146 @@ namespace Scuttle.Services
 
             return (int) (current * 100 / total);
         }
+        /// <summary>
+        /// Gets a standard algorithm ID for the given encryption algorithm
+        /// </summary>
+        private string GetAlgorithmId(IEncryption encryption)
+        {
+            return _algorithmIdentifier.GetAlgorithmId(encryption.GetType().Name);
+        }
+        // Method to add to FileEncryptionService.cs
+        /// <summary>
+        /// Displays detailed algorithm information for a detected algorithm
+        /// </summary>
+        public string GetAlgorithmInfoForDisplay(string algorithmId)
+        {
+            return $"{GetAlgorithmDisplayName(algorithmId)} (ID: {algorithmId})";
+        }
+        /// <summary>
+        /// Gets a human-readable name for an algorithm ID
+        /// </summary>
+        public string GetAlgorithmDisplayName(string algorithmId)
+        {
+            return algorithmId switch
+            {
+                "AESG" => "AES-GCM",
+                "CC20" => "ChaCha20",
+                "SL20" => "Salsa20",
+                "3DES" => "Triple DES",
+                "3FSH" => "ThreeFish",
+                "RC2_" => "RC2",
+                "XCCH" => "XChaCha",
+                "AES_" => "AES",
+                _ => algorithmId
+            };
+        }
 
+        /// <summary>
+        /// Gets a human-readable name for the algorithm used by an encryption instance
+        /// </summary>
+        public string GetAlgorithmDisplayName(IEncryption encryption)
+        {
+            return GetAlgorithmDisplayName(GetAlgorithmId(encryption));
+        }
+
+        /// <summary>
+        /// Returns the appropriate path for an encrypted file based on the original file and encryption algorithm
+        /// </summary>
+        public string GetEncryptedFilePath(string originalFilePath, IEncryption encryption)
+        {
+            var algorithmId = GetAlgorithmId(encryption);
+            var algorithmExtension = AlgorithmExtensionMap.GetExtensionForAlgorithm(algorithmId);
+
+            var extension = Path.GetExtension(originalFilePath);
+            var baseFileName = Path.GetFileNameWithoutExtension(originalFilePath);
+            var directory = Path.GetDirectoryName(originalFilePath) ?? string.Empty;
+
+            // Create a new filename with the original extension plus the algorithm extension
+            return Path.Combine(directory, baseFileName + extension + algorithmExtension);
+        }
+
+        /// <summary>
+        /// Tries to detect the encryption algorithm used in a file
+        /// </summary>
+        /// <returns>A tuple containing the algorithm ID and encryption header (if found)</returns>
+        public async Task<(string AlgorithmId, EncryptionHeader? Header)> DetectEncryptionAlgorithmAsync(
+    string filePath, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+                // Check if file is large enough to contain a header
+                if ( fileStream.Length < EncryptionHeader.HEADER_SIZE )
+                {
+                    _logger.LogDebug("File is too small to contain a valid encryption header: {Path}", filePath);
+                    return (string.Empty, null);
+                }
+
+                try
+                {
+                    // Use ReadAsync to make this truly async
+                    byte[] buffer = new byte[EncryptionHeader.HEADER_SIZE];
+                    await fileStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
+
+                    // Reset position after reading
+                    fileStream.Position = 0;
+
+                    // Try to read header
+                    var header = EncryptionHeader.Read(fileStream);
+                    _logger.LogDebug("Detected encryption algorithm: {AlgorithmId}", header.AlgorithmId);
+                    return (header.AlgorithmId, header);
+                }
+                catch ( InvalidDataException ex )
+                {
+                    _logger.LogDebug(ex, "Could not detect encryption algorithm from file header");
+                }
+
+                // If header detection failed, try detecting from file extension
+                var extension = Path.GetExtension(filePath).TrimStart('.');
+                var algorithmId = AlgorithmExtensionMap.TryGetAlgorithmFromExtension(extension);
+
+                if ( !string.IsNullOrEmpty(algorithmId) )
+                {
+                    _logger.LogDebug("Detected encryption algorithm from file extension: {AlgorithmId}", algorithmId);
+                    return (algorithmId, null);
+                }
+
+                // Could not detect algorithm
+                return (string.Empty, null);
+            }
+            catch ( Exception ex )
+            {
+                _logger.LogDebug(ex, "Error while trying to detect encryption algorithm");
+                return (string.Empty, null);
+            }
+        }
+
+
+        /// <summary>
+        /// Synchronous version of DetectEncryptionAlgorithmAsync
+        /// </summary>
+        public (string AlgorithmId, EncryptionHeader? Header) DetectEncryptionAlgorithm(string filePath)
+        {
+            return DetectEncryptionAlgorithmAsync(filePath).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Creates a custom file extension for the encrypted file based on the original extension and encryption algorithm
+        /// </summary>
+        private string CreateEncryptedFileExtension(string originalPath, IEncryption encryption)
+        {
+            var algorithmId = GetAlgorithmId(encryption);
+            var algorithmExtension = AlgorithmExtensionMap.GetExtensionForAlgorithm(algorithmId);
+
+            var extension = Path.GetExtension(originalPath);
+            var baseFileName = Path.GetFileNameWithoutExtension(originalPath);
+            var directory = Path.GetDirectoryName(originalPath) ?? string.Empty;
+
+            // Create a new filename with the original extension plus the algorithm extension
+            // For example: document.docx becomes document.docx.aes
+            return Path.Combine(directory, baseFileName + extension + algorithmExtension);
+        }
         /// <summary>
         /// Create a progress reporting action that logs progress at appropriate intervals
         /// </summary>

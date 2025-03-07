@@ -15,6 +15,7 @@ using Scuttle.Models.Art;
 using Scuttle.Interfaces;
 using Scuttle.Models.Configuration;
 using Scuttle.Configuration;
+using Microsoft.Extensions.Logging.Console;
 
 class Program
 {
@@ -80,9 +81,17 @@ class Program
             {
                 logging.ClearProviders();
                 logging.AddConfiguration(hostContext.Configuration.GetSection("Logging"));
+
+                // Add filter to suppress specific log sources at Information level in the console
+                logging.AddFilter<ConsoleLoggerProvider>("Scuttle.Services.FileEncryptionService", LogLevel.Warning);
+                logging.AddFilter<ConsoleLoggerProvider>("Scuttle.Program", LogLevel.Warning);
+
+                // Keep default filters for other namespaces
                 logging.AddFilter("Microsoft", LogLevel.Warning);
                 logging.AddFilter("System", LogLevel.Warning);
                 logging.AddFilter("Scuttle", LogLevel.Information);
+
+                // Add console logger after filters
                 logging.AddConsole();
             })
             .ConfigureServices((hostContext, services) =>
@@ -98,8 +107,9 @@ class Program
                 services.AddSingleton(hostContext.Configuration.GetSection("Algorithms").Get<AlgorithmConfig>() ?? new AlgorithmConfig());
 
                 // Register core services
-                services.AddSingleton<ConfigurationService>();
+                services.AddSingleton<AlgorithmIdentifier>();
                 services.AddSingleton<EncryptionFactory>();
+                services.AddSingleton<ConfigurationService>();
                 services.AddSingleton<AlgorithmRegistry>();
                 services.AddSingleton<PaddingService>();
                 services.AddSingleton<ArgumentParser>();
@@ -259,9 +269,7 @@ class Program
             }
         }
     }
-    /// <summary>
-    /// Process file encryption or decryption operations
-    /// </summary>
+    // In Program.cs
     private async Task ProcessFileOperation(CliOptions options)
     {
         try
@@ -272,27 +280,108 @@ class Program
                 options.InputFile = _displayService.PromptForFilePath("Enter the path to the input file:");
             }
 
+            bool isEncrypting = options.Mode?.ToLower() == "encrypt";
+
             if ( string.IsNullOrEmpty(options.OutputFile) )
             {
-                string defaultExt = options.Mode?.ToLower() == "encrypt" ? ".encrypted" : ".decrypted";
-                options.OutputFile = _displayService.PromptForOutputPath(options.InputFile, defaultExt);
+                if ( isEncrypting )
+                {
+                    // For encryption, let the service determine the new extension
+                    options.OutputFile = null; // We'll set it later
+                }
+                else
+                {
+                    // For decryption, strip the encryption extension
+                    string originalExt = Path.GetExtension(options.InputFile);
+                    string baseExt = Path.GetExtension(Path.GetFileNameWithoutExtension(options.InputFile));
+                    string defaultExt = !string.IsNullOrEmpty(baseExt) ? baseExt : ".decrypted";
+                    options.OutputFile = _displayService.PromptForOutputPath(options.InputFile, defaultExt);
+                }
             }
 
-            // Get algorithm and encoder if not specified
-            var algorithm = options.Algorithm != null
-                ? _configService.GetAlgorithmMetadata(options.Algorithm)
-                : _displayService.SelectEncryptionAlgorithm();
+            IEncryption encryption;
 
-            var encoderMetadata = options.Encoder != null
-                ? _configService.GetAllEncoders().First(e => e.Name == options.Encoder)
-                : _displayService.SelectEncodingMethod();
+            if ( isEncrypting )
+            {
+                // For encryption, get algorithm and encoder as before
+                var algorithm = options.Algorithm != null
+                    ? _configService.GetAlgorithmMetadata(options.Algorithm)
+                    : _displayService.SelectEncryptionAlgorithm();
 
-            // Create encryption instance
-            var encoder = _configService.GetEncoder(encoderMetadata.Name);
-            var encryption = _algorithmRegistry.CreateAlgorithm(algorithm.Name, encoder);
+                var encoderMetadata = options.Encoder != null
+                    ? _configService.GetAllEncoders().First(e => e.Name == options.Encoder)
+                    : _displayService.SelectEncodingMethod();
+
+                // Create encryption instance
+                var encoder = _configService.GetEncoder(encoderMetadata.Name);
+                encryption = _algorithmRegistry.CreateAlgorithm(algorithm.Name, encoder);
+
+                // If no output file was specified, create one with the appropriate extension
+                if ( string.IsNullOrEmpty(options.OutputFile) )
+                {
+                    options.OutputFile = _fileEncryptionService.GetEncryptedFilePath(options.InputFile, encryption);
+                }
+            }
+            else
+            {
+                // For decryption, try to detect the algorithm from the file
+                (string algorithmId, _) = await _fileEncryptionService.DetectEncryptionAlgorithmAsync(options.InputFile);
+
+                if ( !string.IsNullOrEmpty(algorithmId) )
+                {
+                    try
+                    {
+                        // Found the algorithm in the file header - log at info level for user
+                        var displayName = _fileEncryptionService.GetAlgorithmDisplayName(algorithmId);
+                        Console.WriteLine($"\nUsing detected algorithm: {displayName}");
+
+                        // Get the corresponding algorithm
+                        var algorithm = _configService.GetAlgorithmById(algorithmId);
+                        var encoder = _configService.GetDefaultEncoder(algorithm.Name);
+                        encryption = _algorithmRegistry.CreateAlgorithm(algorithm.Name, encoder);
+                    }
+                    catch ( Exception ex )
+                    {
+                        // Log at debug level only
+                        _logger.LogDebug(ex, "Error creating algorithm with ID {AlgorithmId}", algorithmId);
+
+                        // Couldn't use detected algorithm, ask user
+                        Console.WriteLine("Could not use the detected algorithm. Please select manually.");
+
+                        var algorithm = options.Algorithm != null
+                            ? _configService.GetAlgorithmMetadata(options.Algorithm)
+                            : _displayService.SelectEncryptionAlgorithm();
+
+                        var encoderMetadata = options.Encoder != null
+                            ? _configService.GetAllEncoders().First(e => e.Name == options.Encoder)
+                            : _displayService.SelectEncodingMethod();
+
+                        // Create encryption instance
+                        var encoder = _configService.GetEncoder(encoderMetadata.Name);
+                        encryption = _algorithmRegistry.CreateAlgorithm(algorithm.Name, encoder);
+                    }
+                }
+                else
+                {
+                    // Couldn't detect algorithm, ask user
+                    Console.WriteLine("Could not detect encryption algorithm from file. Please select manually.");
+
+                    var algorithm = options.Algorithm != null
+                        ? _configService.GetAlgorithmMetadata(options.Algorithm)
+                        : _displayService.SelectEncryptionAlgorithm();
+
+                    var encoderMetadata = options.Encoder != null
+                        ? _configService.GetAllEncoders().First(e => e.Name == options.Encoder)
+                        : _displayService.SelectEncodingMethod();
+
+                    // Create encryption instance
+                    var encoder = _configService.GetEncoder(encoderMetadata.Name);
+                    encryption = _algorithmRegistry.CreateAlgorithm(algorithm.Name, encoder);
+                }
+            }
 
             // Process based on mode
-            if ( options.Mode?.ToLower() == "encrypt" )
+            if ( isEncrypting )
             {
                 await HandleFileEncryption(options, encryption);
             }
@@ -303,10 +392,22 @@ class Program
         }
         catch ( Exception ex )
         {
-            _logger.LogError(ex, "File operation failed");
-            if ( !options.Silent ) throw;
+            // Log at debug level for internal details
+            _logger.LogDebug(ex, "File operation failed (details)");
+
+            // User-friendly message at info level
+            _logger.LogInformation("File operation failed: {Message}", ex.Message);
+
+            if ( !options.Silent )
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"\nOperation failed: {ex.Message}");
+                Console.ResetColor();
+            }
         }
     }
+
+
     private async Task ProcessBatchFile(string batchFile)
     {
         try
@@ -507,27 +608,51 @@ class Program
             key = _displayService.PromptForDecryptionKey();
         }
 
-        // Decrypt the file with progress indicator
-        bool success = await Util.ExecuteWithDelayedSpinner(() =>
+        try
         {
-            return _fileEncryptionService.DecryptFileAsync(
-                options.InputFile!,
-                options.OutputFile!,
-                encryption,
-                key);
-        }, "Decrypting file...");
+            // Decrypt the file with progress indicator
+            bool success = await Util.ExecuteWithDelayedSpinner(() =>
+            {
+                return _fileEncryptionService.DecryptFileAsync(
+                    options.InputFile!,
+                    options.OutputFile!,
+                    encryption,
+                    key);
+            }, "Decrypting file...");
 
-        // Display results if not silent
-        if ( !options.Silent )
-        {
-            DisplayService.DisplayDecryptionResults(success, options.OutputFile!);
+            // Display results if not silent
+            if ( !options.Silent )
+            {
+                DisplayService.DisplayDecryptionResults(success, options.OutputFile!);
+            }
+
+            if ( !success )
+            {
+                // Don't throw CryptographicException - this prevents cascading errors
+                _logger.LogError("Decryption failed. The key may be incorrect or the file may be corrupted.");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("\nDecryption failed. The key may be incorrect or the file may be corrupted.");
+                Console.ResetColor();
+
+                // Return early rather than throwing
+                return;
+            }
         }
-
-        if ( !success )
+        catch ( Exception ex )
         {
-            throw new CryptographicException("Decryption failed. The key may be incorrect or the file may be corrupted.");
+            // Log the exception at DEBUG level only to hide implementation details
+            _logger.LogDebug(ex, "Decryption error details");
+
+            // Show user-friendly message
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("\nDecryption failed. The key may be incorrect or the file may be corrupted.");
+            Console.ResetColor();
+
+            // Don't rethrow - prevents cascading errors
+            return;
         }
     }
+
     private async Task PerformEncryptionAsync(CliOptions options)
     {
 
@@ -694,6 +819,6 @@ class Program
     private static void ShowVersion()
     {
         var version = Assembly.GetExecutingAssembly().GetName().Version;
-        Scuttle.Models.Art.Graphic.DisplayGraphicAndVersion(version.ToString());
+        Graphic.DisplayGraphicAndVersion(version?.ToString() ?? "1.0.0");
     }
 }
