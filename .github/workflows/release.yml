@@ -58,7 +58,7 @@ jobs:
       
     - name: Build
       run: |
-        dotnet publish "Token Generator/Token Generator.csproj" \
+        dotnet publish "Scuttle/Scuttle.csproj" \
           -c Release \
           -r ${{ matrix.rid }} \
           --self-contained true \
@@ -71,20 +71,20 @@ jobs:
     - name: Set executable permissions (Unix)
       if: matrix.os != 'windows'
       run: |
-        cd "Token Generator/bin/Release/net8.0/${{ matrix.rid }}/publish/"
-        chmod +x "Token Generator"
+        cd "Scuttle/bin/Release/net8.0/${{ matrix.rid }}/publish/"
+        chmod +x "Scuttle"
 
     - name: Create Archive
       run: |
-        cd "Token Generator/bin/Release/net8.0/${{ matrix.rid }}/publish/"
+        cd "Scuttle/bin/Release/net8.0/${{ matrix.rid }}/publish/"
         
         if [ "${{ matrix.archive }}" = "zip" ]; then
-          zip -r ../TokenGenerator-${{ matrix.rid }}.zip .
+          zip -r ../Scuttle-${{ matrix.rid }}.zip .
         else
-          tar -czvf ../TokenGenerator-${{ matrix.rid }}.tar.gz .
+          tar -czvf ../Scuttle-${{ matrix.rid }}.tar.gz .
         fi
         
-        mv ../TokenGenerator-${{ matrix.rid }}.${{ matrix.archive }} .
+        mv ../Scuttle-${{ matrix.rid }}.${{ matrix.archive }} .
 
     - name: Upload Release Asset
       uses: softprops/action-gh-release@v1
@@ -93,4 +93,4 @@ jobs:
       with:
         tag_name: v${{ needs.create-release.outputs.version }}
         files: |
-          Token Generator/bin/Release/net8.0/${{ matrix.rid }}/publish/TokenGenerator-${{ matrix.rid }}.${{ matrix.archive }}
+          Scuttle/bin/Release/net8.0/${{ matrix.rid }}/publish/Scuttle-${{ matrix.rid }}.${{ matrix.archive }}
