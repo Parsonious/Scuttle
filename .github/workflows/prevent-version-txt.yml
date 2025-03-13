@@ -1,0 +1,15 @@
+name: Prevent Direct version.txt Changes
+
+on:
+  pull_request:
+    paths:
+      - '**/version.txt'
+
+jobs:
+  check-version-file:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check version.txt changes
+        run: |
+          echo "::error::Direct edits to version.txt are not allowed. This file is auto-incremented by the build process."
+          exit 1

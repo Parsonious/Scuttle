@@ -9,6 +9,16 @@
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
 	  <AssemblyName>Scuttle</AssemblyName>
 	  <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+
+	  <!-- Version properties -->
+	  <VersionMajor>1</VersionMajor>
+	  <VersionMinor>0</VersionMinor>
+	  <VersionPatch>0</VersionPatch>
+	  <!-- Read from a file that will be auto-incremented -->
+	  <VersionPatch>$([System.IO.File]::ReadAllText("$(MSBuildProjectDirectory)/version.txt"))</VersionPatch>
+	  <Version>$(VersionMajor).$(VersionMinor).$(VersionPatch)</Version>
+	  <AssemblyVersion>$(Version)</AssemblyVersion>
+	  <FileVersion>$(Version)</FileVersion>
   </PropertyGroup>
 
 	<PropertyGroup>
@@ -38,5 +48,18 @@
   <ItemGroup>
     <Folder Include="Encrypt\Strategies\TripleDES\" />
   </ItemGroup>
+	
+	<Target Name="GetVersion">
+		<Message Importance="high" Text="$(Version)" />
+	</Target>
+	
+	<!-- Add this target to increment patch version after build -->
+	<Target Name="IncrementPatchVersion" AfterTargets="Build">
+		<PropertyGroup>
+			<CurrentPatch>$([System.IO.File]::ReadAllText("$(MSBuildProjectDirectory)/version.txt"))</CurrentPatch>
+			<NewPatch>$([MSBuild]::Add($(CurrentPatch), 1))</NewPatch>
+		</PropertyGroup>
+		<WriteLinesToFile File="$(MSBuildProjectDirectory)/version.txt" Lines="$(NewPatch)" Overwrite="true" />
+	</Target>
 
 </Project>
