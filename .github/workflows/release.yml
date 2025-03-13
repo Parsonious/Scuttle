@@ -2,8 +2,8 @@ name: Create Release
 
 on:
   push:
-    branches: [ main ]
-    
+    branches: [ main, test ]
+  workflow_dispatch:
 jobs:
   create-release:
     runs-on: ubuntu-latest
@@ -14,17 +14,21 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     
     steps:
-    - name: Get version
-      id: version
-      run: echo "version=$(date +'%Y.%m.%d.%H%M')" >> $GITHUB_OUTPUT
-
-    - name: Create Release
-      id: create_release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: v${{ steps.version.outputs.version }}
-        name: Release v${{ steps.version.outputs.version }}
-        generate_release_notes: true
+      - uses: actions/checkout@v3
+      
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(dotnet msbuild -nologo -t:GetVersion Scuttle/Scuttle.csproj)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Release v${{ steps.version.outputs.version }}
+          generate_release_notes: true
 
   build:  
     needs: create-release
@@ -40,57 +44,72 @@ jobs:
             os: windows
             ext: .exe
             archive: zip
+          - rid: win-arm64
+            os: windows
+            ext: .exe
+            archive: zip
           - rid: linux-x64
             os: linux
             ext: ''
             archive: tar.gz
+          - rid: linux-arm64
+            os: linux
+            ext: ''
+            archive: tar.gz
+          - rid: osx-x64
+            os: macos
+            ext: ''
+            archive: tar.gz
+          - rid: osx-arm64
+            os: macos
+            ext: ''
+            archive: tar.gz
 
     steps:  
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
     
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: 8.0.x
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 8.0.x
         
-    - name: Restore dependencies
-      run: dotnet restore
+      - name: Restore dependencies
+        run: dotnet restore
       
-    - name: Build
-      run: |
-        dotnet publish "Scuttle/Scuttle.csproj" \
-          -c Release \
-          -r ${{ matrix.rid }} \
-          --self-contained true \
-          /p:PublishSingleFile=true \
-          /p:PublishTrimmed=true \
-          /p:IncludeNativeLibrariesForSelfExtract=true \
-          /p:EnableCompressionInSingleFile=true \
-          /p:DebugType=embedded
+      - name: Build
+        run: |
+          dotnet publish "Scuttle/Scuttle.csproj" \
+            -c Release \
+            -r ${{ matrix.rid }} \
+            --self-contained true \
+            /p:PublishSingleFile=true \
+            /p:PublishTrimmed=true \
+            /p:IncludeNativeLibrariesForSelfExtract=true \
+            /p:EnableCompressionInSingleFile=true \
+            /p:DebugType=embedded
 
-    - name: Set executable permissions (Unix)
-      if: matrix.os != 'windows'
-      run: |
-        cd "Scuttle/bin/Release/net8.0/${{ matrix.rid }}/publish/"
-        chmod +x "Scuttle"
+      - name: Set executable permissions (Unix)
+        if: matrix.os != 'windows'
+        run: |
+          cd "Scuttle/bin/Release/net8.0/${{ matrix.rid }}/publish/"
+          chmod +x Scuttle
 
-    - name: Create Archive
-      run: |
-        cd "Scuttle/bin/Release/net8.0/${{ matrix.rid }}/publish/"
+      - name: Create Archive
+        run: |
+          cd "Scuttle/bin/Release/net8.0/${{ matrix.rid }}/publish/"
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            zip -r ../Scuttle-${{ matrix.rid }}.zip .
+          else
+            tar -czvf ../Scuttle-${{ matrix.rid }}.tar.gz .
+          fi
+          # Move the archive back to the publish directory for the upload step
+          mv ../Scuttle-${{ matrix.rid }}.${{ matrix.archive }} .
         
-        if [ "${{ matrix.archive }}" = "zip" ]; then
-          zip -r ../Scuttle-${{ matrix.rid }}.zip .
-        else
-          tar -czvf ../Scuttle-${{ matrix.rid }}.tar.gz .
-        fi
-        
-        mv ../Scuttle-${{ matrix.rid }}.${{ matrix.archive }} .
-
-    - name: Upload Release Asset
-      uses: softprops/action-gh-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: v${{ needs.create-release.outputs.version }}
-        files: |
-          Scuttle/bin/Release/net8.0/${{ matrix.rid }}/publish/Scuttle-${{ matrix.rid }}.${{ matrix.archive }}
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ needs.create-release.outputs.version }}
+          files: |
+            Scuttle/bin/Release/net8.0/${{ matrix.rid }}/publish/Scuttle-${{ matrix.rid }}.${{ matrix.archive }}
