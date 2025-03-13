@@ -19,7 +19,7 @@ jobs:
       - name: Get version
         id: version
         run: |
-          VERSION=$(dotnet msbuild -nologo -t:GetVersion Scuttle/Scuttle.csproj)
+          VERSION=$(dotnet msbuild -nologo -t:GetVersion Scuttle/Scuttle.csproj | xargs)
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           
       - name: Create Release
